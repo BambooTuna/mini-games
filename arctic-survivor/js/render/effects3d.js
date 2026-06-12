@@ -12,7 +12,7 @@ export function itemModelKey(kind) {
 }
 
 // 積んだときの1段ぶんの高さ(モデルキー別)
-export const STACK_H = { meat: 8, meat_slice: 4, meat_cooked: 7.5, money: 7 };
+export const STACK_H = { meat: 12, meat_slice: 6.5, meat_cooked: 10.5, money: 10 };
 
 // 炎メッシュの揺らぎ(sin 合成の擬似ノイズ)。flames: [{mesh,bx,by,bz,seed}]
 export function flickerFlames(flames, elapsed) {

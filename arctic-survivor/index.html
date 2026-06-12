@@ -26,10 +26,29 @@
         <span id="meat-value">0</span>
       </div>
       <button id="settings-button">⚙️</button>
+      <div id="score-counter">
+        <span>⭐</span>
+        <span id="score-value">0</span>
+      </div>
+    </div>
+
+    <div id="down-overlay" class="menu-hidden">
+      <div class="settings-view">
+        <div class="settings-text">💫 クマにやられた…</div>
+        <div id="down-score-line">スコア ⭐ <span id="down-score">0</span></div>
+        <button id="down-close">リスポーン</button>
+      </div>
     </div>
 
     <div id="settings-menu" class="menu-hidden">
       <div id="settings-main" class="settings-view">
+        <div class="settings-label">🎵 BGM</div>
+        <div id="bgm-options">
+          <button class="bgm-option" data-bgm="snow">雪のテーマ</button>
+          <button class="bgm-option" data-bgm="calm">静かな雪</button>
+          <button class="bgm-option" data-bgm="ambient">アンビエント</button>
+          <button class="bgm-option" data-bgm="off">OFF</button>
+        </div>
         <button id="reset-open">🗑️ 進捗を初期化</button>
         <button id="settings-close">閉じる</button>
       </div>

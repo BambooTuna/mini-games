@@ -11,6 +11,7 @@ export function createActors(ctx) {
   const playerModel = buildModel("player");
   scene.add(playerModel);
   let lastWeaponLv = -1; // 武器の見た目成長の変化検知
+  let lastBootsLv = -1;  // バックパック(boots)の見た目ティアの変化検知
 
   // ---- 背中スタック(遅延追従チェーン。下から上へ波打つ) ----
   // 各段がすぐ下の段の頭上へ spring 追従する。slot は kind 別メッシュを抱えて切り替える。
@@ -208,6 +209,21 @@ export function createActors(ctx) {
       if (axehead?.material?.color) {
         if (weaponLv >= 6) axehead.material.color.set(0xf3c94e);
         else if (weaponLv >= 3) axehead.material.color.set(0x9ab8d8);
+      }
+    }
+
+    // バックパックの見た目進化(Lv0 非表示 / Lv1-3 雑嚢 / Lv4-6 中型 / Lv7+ 大型フレーム)
+    const bootsLv = state.save.levels?.boots ?? 0;
+    if (bootsLv !== lastBootsLv) {
+      lastBootsLv = bootsLv;
+      const backpack = playerModel.getObjectByName("backpack");
+      if (backpack) {
+        backpack.visible = bootsLv >= 1;
+        const tier = bootsLv >= 7 ? 3 : bootsLv >= 4 ? 2 : 1;
+        for (let i = 1; i <= 3; i++) {
+          const part = backpack.getObjectByName(`pack_${i}`);
+          if (part) part.visible = i === tier;
+        }
       }
     }
 

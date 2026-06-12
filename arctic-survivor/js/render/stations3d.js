@@ -10,8 +10,9 @@ import { itemModelKey, STACK_H, flickerFlames } from "./effects3d.js";
 const PILE_CAP_MEAT = 36;
 const PILE_CAP_MONEY = 40;
 
-// 山の i 番目の置き位置(2個/層 ±10 オフセットで高く積む。baseH=天板上面 42)
-function pileSlotPos(anchor, i, stackH, baseH = 42) {
+// 山の i 番目の置き位置(2個/層 ±10 オフセットで高く積む。baseH=トレイ上面 44 の少し上。
+// トレイや天板と同一高さに置くと z-fighting でチラつくため必ず浮かせる)
+function pileSlotPos(anchor, i, stackH, baseH = 44.5) {
   return {
     x: anchor.x + ((i % 2) - 0.5) * 20,
     y: baseH + Math.floor(i / 2) * stackH,
@@ -35,7 +36,7 @@ export function createStations3d(ctx) {
 
   // ---- ゾーン矩形デカール(台前の投入/受取判定。in=白枠+▼ / out=金枠+▲、中に立つと緑に光る) ----
   // アイテム絵文字と枠色をデカールに焼き込み、文字を使わず「何を置く/取る場所か」を示す
-  const KIND_ICON = { raw: "🥩", slice: "🔪", cooked: "🍖", money: "💵" };
+  const KIND_ICON = { raw: "🥩", slice: "🥓", cooked: "🍖", money: "💵" };
   const ZONE_IN_FRAME = "#e8f4ff";
   const ZONE_OUT_FRAME = "#ffd84d";
   const zoneEntries = []; // {zone, decal}
@@ -104,12 +105,13 @@ export function createStations3d(ctx) {
     addBelt("grill", grillSt?.outPile, counter?.inPile);
   }
 
-  // ---- 置き場トレイ(テーブル上の山アンカーの目印。上面=42 で天板と面一、山の baseH=42 はそのまま) ----
+  // ---- 置き場トレイ(テーブル上の山アンカーの目印。天板上面=42 の上に載せる) ----
+  // 天板と面一(上面同士が同一平面)にすると z-fighting で移動中にチラつくため重ねない
   function addTray(anchor) {
     if (!anchor) return;
     try {
       const m = buildModel("tray");
-      m.position.set(anchor.x, 40, anchor.y);
+      m.position.set(anchor.x, 42, anchor.y);
       scene.add(m);
     } catch { /* モデル未実装でも進行 */ }
   }

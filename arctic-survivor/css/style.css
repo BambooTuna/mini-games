@@ -217,6 +217,24 @@ html, body {
   animation: bump 0.18s ease-out;
 }
 
+/* スコア(左上に小さく) */
+#score-counter {
+  position: absolute;
+  top: 10px;
+  left: calc(env(safe-area-inset-left, 0px) + 12px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 4px 12px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
 @keyframes bump {
   50% { transform: scale(1.18); }
 }
@@ -284,7 +302,7 @@ html, body {
   pointer-events: auto; /* #hud は pointer-events:none のため明示 */
 }
 
-#settings-menu {
+#settings-menu, #down-overlay {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -295,6 +313,14 @@ html, body {
   padding: 20px 24px;
   pointer-events: auto;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+
+#down-score-line {
+  color: #ffd84d;
+  font-weight: bold;
+  font-size: 22px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .settings-view {
@@ -312,7 +338,7 @@ html, body {
   white-space: nowrap;
 }
 
-#settings-menu button {
+#settings-menu button, #down-overlay button {
   border: 2px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
@@ -327,4 +353,27 @@ html, body {
 #reset-open, #reset-confirm {
   border-color: rgba(226, 85, 85, 0.7);
   color: #ff9c8f;
+}
+
+.settings-label {
+  color: #cfe6ff;
+  font-weight: bold;
+  font-size: 14px;
+  text-align: center;
+}
+
+#bgm-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#bgm-options .bgm-option {
+  padding: 9px 10px !important;
+  font-size: 14px !important;
+}
+
+#bgm-options .bgm-option.active {
+  border-color: #7cc4ff !important;
+  background: rgba(124, 196, 255, 0.28) !important;
 }

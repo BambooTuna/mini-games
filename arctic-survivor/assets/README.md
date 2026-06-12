@@ -9,12 +9,18 @@
 
 | キー | 出典 |
 | --- | --- |
-| `player`(Knight) / `hunter`(Barbarian) / `customer`(Rogue_Hooded) | [KayKit Character Pack: Adventurers](https://kaylousberg.itch.io/kaykit-adventurers)（同梱武器は handslot 非表示、Idle ポーズ静的適用、コード製オノ装着） |
+| `hunter`(Barbarian) / `customer`(Rogue_Hooded) | [KayKit Character Pack: Adventurers](https://kaylousberg.itch.io/kaykit-adventurers)（同梱武器は handslot 非表示、Idle ポーズ静的適用、hunter はコード製オノ装着） |
+| `player`(雪山の老人) / `bear_t1`〜`bear_t4` | 自作。`assets_src/blender/oldman.py` / `bear.py` を Blender ヘッドレスで実行して生成（下記） |
 | `tree` / `rock` / `snowpile` | [Kenney Holiday Kit](https://kenney.nl/assets/holiday-kit) |
 | `crate` / `tent` / `campfire` | [Kenney Survival Kit](https://kenney.nl/assets/survival-kit)（campfire は炎・光をコードで追加） |
 
 - Kenney 製 glb はテクスチャ外部参照のため `assets/models/Textures/colormap_{survival,holiday}.png` が必要
   （両キットが同名 `Textures/colormap.png` を参照していて衝突するため、glb 内の URI をキット別に書き換え済み）
+- 自作モデルの再生成（位置・色の調整は各スクリプトの座標/パレットを編集して再実行）:
+  ```
+  blender -b -P assets_src/blender/oldman.py -- --out assets/models/player.glb [--render preview.png]
+  blender -b -P assets_src/blender/bear.py -- --tier 1 --out assets/models/bear_t1.glb  # tier 1〜4
+  ```
 - 元パック一式は `assets_src/` に保管（他のモデルへの差し替え候補あり）。`_preview.html` で各モデルを並べて確認できる
 - KayKit キャラはアニメーションクリップ75種を同梱。歩行・攻撃モーションの再生は未実装（AnimationMixer 対応が必要）
 
@@ -65,11 +71,30 @@
 ## 効果音
 
 `assets/sfx/<name>_<n>.m4a` があればファイル再生（同名複数からランダム）、無い名前は WebAudio 合成に
-フォールバックする（`js/audio.js`）。適用済み: hit / kill / chop / shatter / pickup / sell / money
-（出典: [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) と
-[Kenney Casino Audio](https://kenney.nl/assets/casino-audio)、CC0。ogg から m4a へ変換済み — Safari が
-Ogg Vorbis をデコードできないため）。levelup / quest / sizzle は合成音のまま。
+フォールバックする（`js/audio.js`）。levelup / quest は合成音のまま。
 差し替え・追加は同じ命名でファイルを置き、`js/audio.js` の `SFX_FILE_COUNTS` を合わせるだけ。
+
+アンビエントループ（`ambient_fire` = 焚き火常時、`ambient_sizzle` = 焼き台の加工中）は
+`updateAmbients()` が毎フレーム距離減衰で音量を更新する（配線は main.js の syncAmbients）。
+
+BGM（`bgm_snow` / `bgm_calm` / `bgm_ambient`）は常時ループ。設定メニューの 🎵BGM で切替・OFF でき、
+選択は localStorage（`arctic-survivor-bgm`、既定は `ambient`）に保存。`js/audio.js` の `BGM_TRACKS` で
+ファイル・音量を定義、`setBgmTrack()` で切替。すべて loudnorm I=-22 で音量を統一済み。
+
+出典（すべて商用可・クレジット不要）:
+
+| ファイル | 出典 | ライセンス |
+| --- | --- | --- |
+| hit / kill / chop / shatter / pickup | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) | CC0 |
+| money | [Kenney Casino Audio](https://kenney.nl/assets/casino-audio) chips-handle / chips-collide をローパス8.5kでトリム（チップがジャラッと流れる現金音） | CC0 |
+| sell / pay | [Kenney Casino Audio](https://kenney.nl/assets/casino-audio)（sell=chip-lay、pay=card-shove 0.45s トリム） | CC0 |
+| sizzle / ambient_sizzle | [Frying Steak（Pixabay, freesound_community）](https://pixabay.com/sound-effects/household-frying-steak-74556/) | Pixabay Content License |
+| ambient_fire | [Fireplace Sound loop（OpenGameArt, PagDev）](https://opengameart.org/content/fireplace-sound-loop) | CC0 |
+| bgm_snow / bgm_calm | [Snow Theme（OpenGameArt, Cleyton Kauffman）](https://opengameart.org/content/snow-theme) 通常版／スロー版 | CC0 |
+| bgm_ambient | [November Snow（OpenGameArt, cynicmusic）](https://opengameart.org/content/november-snow) | CC0 |
+
+すべて m4a (AAC) へ変換済み — Safari が Ogg Vorbis をデコードできないため。
+元素材と比較候補は `assets_src/sfx_candidates/` に保管。
 
 ## 旧 2D アセットについて
 

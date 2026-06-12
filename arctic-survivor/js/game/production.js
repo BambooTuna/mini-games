@@ -2,7 +2,7 @@
 import { CONFIG } from "../config.js";
 import { insideZone } from "../world.js";
 import { playSfx } from "../audio.js";
-import { addText, depositFromStack, playMoneySfx } from "./helpers.js";
+import { addText, depositFromStack, flowBatch, playMoneySfx } from "./helpers.js";
 
 export function createProduction({ state, world, save, quests }) {
   // 加工ステーション(常設): 投入(inZone)→加工(inPile の山→outPile の山)→取出(outZone)
@@ -32,14 +32,20 @@ export function createProduction({ state, world, save, quests }) {
         }
       }
 
-      // 投入: inZone 内で、スタック末尾側から inKind に一致する最後の1個を投入の山へ飛ばす
+      // 投入: inZone 内で、スタック末尾側から inKind を投入の山へ飛ばす。
+      // 大量持ちでも flow.maxSeconds 程度で流れ切るよう 1tick の個数を増やす
       st.depositTimer = Math.max(0, st.depositTimer - dt);
       if (st.depositTimer <= 0) {
-        const v = depositFromStack(state, proc.inKind, ws.inZone, ws.inPile);
-        if (v !== null) {
-          st.depositTimer = CONFIG.station.depositInterval;
+        const have = player.stack.filter((i) => i.kind === proc.inKind).length;
+        const k = flowBatch(have, CONFIG.station.depositInterval);
+        let deposited = false;
+        for (let i = 0; i < k; i++) {
+          const v = depositFromStack(state, proc.inKind, ws.inZone, ws.inPile);
+          if (v === null) break;
           st.input.push(v);
+          deposited = true;
         }
+        if (deposited) st.depositTimer = CONFIG.station.depositInterval;
       }
 
       // 取出: outZone 内で output から1個ずつ背中へ(carryFlights 経由)。所持上限(飛行中込み)で止まる
@@ -51,11 +57,14 @@ export function createProduction({ state, world, save, quests }) {
       if (st.withdrawTimer <= 0 && st.output.length > 0 && carrying < carryCap &&
           state.stillTime >= 0.15 && insideZone(ws.outZone, player.x, player.y)) {
         st.withdrawTimer = CONFIG.station.withdrawInterval;
-        const v = st.output.pop();
-        state.carryFlights.push({
-          id: state.nextFlightId++, kind: proc.outKind, value: v,
-          x: ws.outPile?.x ?? ws.x, y: ws.outPile?.y ?? ws.y, z: 20, owner: "player", t: 0,
-        });
+        const k = flowBatch(st.output.length, CONFIG.station.withdrawInterval);
+        for (let took = 0; took < k && st.output.length > 0 && carrying + took < carryCap; took++) {
+          const v = st.output.pop();
+          state.carryFlights.push({
+            id: state.nextFlightId++, kind: proc.outKind, value: v,
+            x: ws.outPile?.x ?? ws.x, y: ws.outPile?.y ?? ws.y, z: 20, owner: "player", t: 0,
+          });
+        }
       }
     }
   }
@@ -101,10 +110,16 @@ export function createProduction({ state, world, save, quests }) {
     const ct = state.counter;
     ct.depositTimer = Math.max(0, ct.depositTimer - dt);
     if (ct.depositTimer > 0) return;
-    const v = depositFromStack(state, CONFIG.counter.inKind, counter?.inZone, counter?.inPile);
-    if (v === null) return;
-    ct.depositTimer = CONFIG.station.depositInterval;
-    ct.input.push(v);
+    const have = state.player.stack.filter((i) => i.kind === CONFIG.counter.inKind).length;
+    const k = flowBatch(have, CONFIG.station.depositInterval);
+    let deposited = false;
+    for (let i = 0; i < k; i++) {
+      const v = depositFromStack(state, CONFIG.counter.inKind, counter?.inZone, counter?.inPile);
+      if (v === null) break;
+      ct.input.push(v);
+      deposited = true;
+    }
+    if (deposited) ct.depositTimer = CONFIG.station.depositInterval;
   }
 
   // カウンター自動販売: 預けた肉が sellInterval ごとに売れて金山(counterMoney)へ積まれる
@@ -144,12 +159,15 @@ export function createProduction({ state, world, save, quests }) {
     if (state.stillTime < 0.15 || !insideZone(counter?.outZone, player.x, player.y)) return;
 
     state.collectTimer = CONFIG.money.collectInterval;
-    const bill = Math.min(CONFIG.money.billValue, save.counterMoney);
-    save.counterMoney -= bill;
-    state.carryFlights.push({
-      id: state.nextFlightId++, kind: "money", value: bill,
-      x: counter.outPile?.x ?? counter.x, y: counter.outPile?.y ?? counter.y, z: 30, owner: "player", t: 0,
-    });
+    const k = flowBatch(Math.ceil(save.counterMoney / CONFIG.money.billValue), CONFIG.money.collectInterval);
+    for (let i = 0; i < k && save.counterMoney > 0; i++) {
+      const bill = Math.min(CONFIG.money.billValue, save.counterMoney);
+      save.counterMoney -= bill;
+      state.carryFlights.push({
+        id: state.nextFlightId++, kind: "money", value: bill,
+        x: counter.outPile?.x ?? counter.x, y: counter.outPile?.y ?? counter.y, z: 30, owner: "player", t: 0,
+      });
+    }
     playMoneySfx(state);
   }
 

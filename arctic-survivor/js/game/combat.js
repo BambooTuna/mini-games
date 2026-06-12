@@ -8,7 +8,7 @@ import { createBear, createGroundItem, updateBear, updateGroundItem, findNearest
 import { playSfx } from "../audio.js";
 import { addText, playPickupSfx } from "./helpers.js";
 
-export function createCombat({ state, world, quests, getStats, ui }) {
+export function createCombat({ state, world, quests, getStats, ui, nav }) {
   // source = {type:"player"} | {type:"hunter", id}
   function killBear(bear, source) {
     bear.state = "dead";
@@ -29,9 +29,13 @@ export function createCombat({ state, world, quests, getStats, ui }) {
     state.shake = boss ? 26 : 12;
     state.zoomPunch = Math.max(state.zoomPunch, boss ? 1.0 : 0.6);
     playSfx("kill");
+    if (source?.type === "player") state.score += tier.score;
     quests.notify("killBear", { boss });
-    const spawn = { x: bear.homeX, y: bear.homeY, tier: bear.tier };
-    state.respawnQueue.push({ spawn, timer: tier.respawn });
+    // 再湧きは巣ごとの respawn(秒)。null は倒したら終わり
+    if (bear.respawn) {
+      const spawn = { x: bear.homeX, y: bear.homeY, tier: bear.tier, respawn: bear.respawn };
+      state.respawnQueue.push({ spawn, timer: bear.respawn });
+    }
     state.bears = state.bears.filter((b) => b.id !== bear.id);
   }
 
@@ -51,6 +55,7 @@ export function createCombat({ state, world, quests, getStats, ui }) {
   }
 
   function updateCombat() {
+    if (state.playerDown) return;
     const s = getStats();
     const player = state.player;
     const target = findNearestBear(state.bears, player.x, player.y, CONFIG.player.attackRange);
@@ -67,9 +72,10 @@ export function createCombat({ state, world, quests, getStats, ui }) {
     }
   }
 
-  // プレイヤー被弾: HP減少 + ノックバック + アイテムドロップ。HP 0 でダウン(焚き火へ強制送還)
+  // プレイヤー被弾: HP減少 + ノックバック + アイテムドロップ。HP 0 でダウン(スコア表示→リスポーン)
   function hurtPlayer(bear, result) {
     const player = state.player;
+    if (state.playerDown) return;
     if (player.hurtCd > 0) return; // 連続ヒットの無敵時間
     player.hurtCd = CONFIG.player.hurtCooldown;
     player.hp -= result.damage;
@@ -87,7 +93,7 @@ export function createCombat({ state, world, quests, getStats, ui }) {
     }
     if (player.hp > 0) return;
 
-    // ダウン: 持ち物を一部ばらまいて焚き火へ送還(死亡なしのカジュアル仕様)
+    // ダウン: 持ち物を一部ばらまき、スコア画面を表示(閉じると respawnPlayer)
     const lost = Math.min(CONFIG.player.downDrops, player.stack.length);
     for (let i = 0; i < lost; i++) {
       const dropped = player.stack[player.stack.length - 1];
@@ -95,28 +101,40 @@ export function createCombat({ state, world, quests, getStats, ui }) {
       state.meats.push(createGroundItem(player.x, player.y, dropped.kind, dropped.value));
     }
     state.effects.push({ kind: "burst", x: player.x, y: player.y, color: "#e25555", count: 20, age: 0, life: 0.6 });
+    player.lungeX = 0;
+    player.lungeY = 0;
+    state.shake = Math.max(state.shake, 18);
+    state.playerDown = true;
+    ui.showGameOver();
+  }
+
+  // ダウン画面を閉じたとき: 焚き火へリスポーンしてスコアをリセット
+  function respawnPlayer() {
+    const player = state.player;
     player.x = world.campfire.x + 60;
     player.y = world.campfire.y + 40;
     player.lungeX = 0;
     player.lungeY = 0;
     player.hp = Math.round(player.maxHp * CONFIG.player.downHpRatio);
-    state.shake = Math.max(state.shake, 18);
-    ui.showToast("💫 クマにやられた…焚き火のそばで休もう");
+    state.playerDown = false;
+    state.score = 0;
   }
 
   // ハンター被弾: HP減少 + 突き飛ばし(HP低下は entities 側の休憩遷移につながる)
   function hurtHunter(hunter, bear, result) {
     hunter.hp -= result.damage;
     addText(state, hunter.x, hunter.y - 30, `-${result.damage}`, "#ffb3a7", 16);
+    // 突き飛ばしは減衰ノックバックで(座標を直接動かすと攻撃中にワープして見える)
     const d = Math.hypot(hunter.x - bear.x, hunter.y - bear.y) || 1;
-    hunter.x += ((hunter.x - bear.x) / d) * 50;
-    hunter.y += ((hunter.y - bear.y) / d) * 50;
+    hunter.kx += ((hunter.x - bear.x) / d) * 320;
+    hunter.ky += ((hunter.y - bear.y) / d) * 320;
   }
 
   function updateBears(dt) {
     const isNight = state.time.isNight;
     // 拠点内と休憩中(焚き火)は安全圏: クマは狙わない(全員安全圏なら target=null で徘徊)
-    const targets = [state.player, ...state.hunters.filter((h) => h.state !== "rest")]
+    // ダウン中のプレイヤーも狙わない
+    const targets = [...(state.playerDown ? [] : [state.player]), ...state.hunters.filter((h) => h.state !== "rest")]
       .filter((t) => !insideCamp(world.camp, t.x, t.y));
     for (const bear of state.bears) {
       let target = null;
@@ -127,7 +145,7 @@ export function createCombat({ state, world, quests, getStats, ui }) {
       }
       const prevX = bear.x;
       const prevY = bear.y;
-      const result = updateBear(bear, target, dt, world, isNight);
+      const result = updateBear(bear, target, dt, world, isNight, nav);
       // クマはゲートも通れない(拠点に居た場合だけ、出るためにゲートを許可)
       resolveCampCollision(world.camp, prevX, prevY, bear, insideCamp(world.camp, prevX, prevY));
       if (world.walls) resolveWallsCollision(world.walls, prevX, prevY, bear);
@@ -135,6 +153,27 @@ export function createCombat({ state, world, quests, getStats, ui }) {
       if (result?.type === "bearAttack") {
         if (result.target === state.player) hurtPlayer(bear, result);
         else hurtHunter(result.target, bear, result);
+      } else if (result?.type === "bearSlam") {
+        // ボスの叩きつけ: radius 内の拠点外の全員に当たる
+        state.effects.push({ kind: "ring", x: result.x, y: result.y, age: 0, life: 0.5 });
+        state.shake = Math.max(state.shake, 14);
+        playSfx("hit");
+        for (const v of [state.player, ...state.hunters]) {
+          if (insideCamp(world.camp, v.x, v.y)) continue;
+          if (Math.hypot(v.x - result.x, v.y - result.y) > result.radius) continue;
+          if (v === state.player) hurtPlayer(bear, result);
+          else hurtHunter(v, bear, result);
+        }
+      } else if (result?.type === "bearAlert") {
+        // 気づき❗: 近くで休んでいる群れの仲間にも伝播する
+        addText(state, bear.x, bear.y - 46, "❗", "#ffd84d", 20);
+        for (const other of state.bears) {
+          if (other === bear || other.state !== "idle") continue;
+          if (Math.hypot(other.x - bear.x, other.y - bear.y) < CONFIG.bear.alert.packRange) {
+            other.state = "alert";
+            other.alertT = CONFIG.bear.alert.time + Math.random() * 0.3;
+          }
+        }
       }
     }
   }
@@ -224,7 +263,7 @@ export function createCombat({ state, world, quests, getStats, ui }) {
     const ready = state.respawnQueue.filter((r) => r.timer <= 0);
     state.respawnQueue = state.respawnQueue.filter((r) => r.timer > 0);
     for (const r of ready) {
-      state.bears.push(createBear(r.spawn.x, r.spawn.y, r.spawn.tier));
+      state.bears.push(createBear(r.spawn.x, r.spawn.y, r.spawn.tier, r.spawn.respawn));
     }
   }
 
@@ -236,5 +275,5 @@ export function createCombat({ state, world, quests, getStats, ui }) {
     updateGroundItems(dt);
   }
 
-  return { update, updateRespawns, damageBear };
+  return { update, updateRespawns, damageBear, respawnPlayer };
 }

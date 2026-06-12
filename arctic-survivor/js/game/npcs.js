@@ -6,7 +6,17 @@ import {
 import { createHunter, createCustomer, createGroundItem, updateHunter, updateCustomer } from "../entities.js";
 import { addText, playPickupSfx } from "./helpers.js";
 
-export function createNpcs({ state, world, save, damageBear }) {
+export function createNpcs({ state, world, save, damageBear, nav, getStats }) {
+  // ハンターのステータスは主人公スペック比(強化に連動。同スペックだとインフレするため割引)
+  function hunterStats() {
+    const s = getStats();
+    const r = CONFIG.hunter.ratio;
+    return {
+      damage: Math.round(s.damage * r.damage),
+      speed: s.speed * r.speed,
+      capacity: Math.round(s.carryCap * r.capacity),
+    };
+  }
   // 雇用レベルに合わせてハンター数を揃える
   function syncHunters() {
     const want = CONFIG.upgrades.hunter.effect(save.levels.hunter);
@@ -30,6 +40,12 @@ export function createNpcs({ state, world, save, damageBear }) {
     else if (inputLen <= CONFIG.process.outputCap * 0.6) cutboardJam = false;
     const wantRest = state.time.isNight || cutboardJam;
 
+    // 東の氷壁が開くまでは壁の先のクマを狙わせない(壁際で立ち往生しない)
+    const eastWall = (world.walls ?? []).find((w) => w.id === "east");
+    const huntableX = eastWall && !eastWall.broken ? eastWall.segments[0].x1 : Infinity;
+    const huntable = state.bears.filter((b) => b.x < huntableX);
+    const stats = hunterStats();
+
     for (let i = 0; i < state.hunters.length; i++) {
       const hunter = state.hunters[i];
       // 焚き火の周りの休憩位置(焼き台の投入ゾーンやパッドに被らない手置きオフセット)
@@ -38,7 +54,7 @@ export function createNpcs({ state, world, save, damageBear }) {
       const prevX = hunter.x;
       const prevY = hunter.y;
       updateHunter(hunter, {
-        bears: state.bears, meats: state.meats, depositSpot, world, restSpot, wantRest,
+        bears: huntable, meats: state.meats, depositSpot, world, restSpot, wantRest, nav, stats,
       }, dt, events);
       resolveCampCollision(world.camp, prevX, prevY, hunter);
       if (world.walls) resolveWallsCollision(world.walls, prevX, prevY, hunter);

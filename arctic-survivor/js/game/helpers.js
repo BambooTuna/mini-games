@@ -45,7 +45,14 @@ export function takeBill(owner) {
   return bill;
 }
 
-// 札払いストリーム(パッド/壁パッド共通): 静止中に背中の札を1枚ずつ target へ流し込む。
+// 1tick あたりの処理個数: 残量 count を interval 刻みで1個ずつ流すと flow.maxSeconds を
+// 超える場合だけ個数を増やす(投入/取出/支払い共通。少量なら常に1)
+export function flowBatch(count, interval) {
+  return Math.max(1, Math.ceil((count * interval) / CONFIG.flow.maxSeconds));
+}
+
+// 札払いストリーム(パッド/壁パッド共通): 静止中に背中の札を target へ流し込む。
+// 残額が大きいほど1tickの枚数が増え、おおむね flow.maxSeconds で払い終わる。
 // payTimer は全支払い箇所で共有(同フレーム二重払い防止)。支払えなければ 0 を返す
 export function streamBill(state, remaining, target) {
   const player = state.player;
@@ -53,12 +60,18 @@ export function streamBill(state, remaining, target) {
     return 0;
   }
   state.payTimer = CONFIG.money.payInterval;
-  const bill = takeBill(player);
-  const pay = Math.min(bill.value, remaining);
-  const change = bill.value - pay;
-  if (change > 0) player.stack = [...player.stack, { kind: "money", value: change }];
-  // 💵 がプレイヤーから target へ物理的に流れる演出(札1枚につき1発)
+  const k = flowBatch(Math.ceil(remaining / CONFIG.money.billValue), CONFIG.money.payInterval);
+  let pay = 0;
+  for (let i = 0; i < k && pay < remaining && stackMoney(player.stack) > 0; i++) {
+    const bill = takeBill(player);
+    const p = Math.min(bill.value, remaining - pay);
+    const change = bill.value - p;
+    if (change > 0) player.stack = [...player.stack, { kind: "money", value: change }];
+    pay += p;
+  }
+  // 💵 がプレイヤーから target へ物理的に流れる演出(tick につき1発)
   state.effects.push({ kind: "coin", x: player.x, y: player.y, tx: target.x, ty: target.y, age: 0, life: 0.55 });
+  playSfx("pay");
   return pay;
 }
 

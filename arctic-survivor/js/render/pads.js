@@ -84,18 +84,19 @@ export function createPads(ctx) {
     const player = state.player;
     const levels = state.save.levels ?? {};
 
-    // 強化パッド: 乗ると緑に光り脈動、レベルアップでバウンス。
+    // 強化パッド: 乗ると緑に光り脈動、レベルアップでバウンス。MAX 到達でパッドごと撤去。
     // unlockedPads が無ければ全表示。解放の瞬間(初回フレームを除く)に NEW! ポップ
     for (const pad of world.pads) {
       const unlocked = !state.unlockedPads || state.unlockedPads.includes(pad.key);
+      const maxed = (levels[pad.key] ?? 0) >= (CONFIG.upgrades[pad.key]?.maxLevel ?? Infinity);
       const decal = padDecals[pad.key];
       const prevU = prevPadUnlocked[pad.key];
-      if (prevU !== undefined && prevU === false && unlocked) {
+      if (prevU !== undefined && prevU === false && unlocked && !maxed) {
         spawnNewPop(pad.x, pad.y);
         padBounce[pad.key] = 0.35; // デカールもバウンス
       }
       prevPadUnlocked[pad.key] = unlocked;
-      if (!unlocked) {
+      if (!unlocked || maxed) {
         if (decal.visible) decal.visible = false;
         continue;
       }
@@ -130,26 +131,24 @@ export function createPads(ctx) {
 
   // DOM ラベルと NEW! ポップ。project を使うのでカメラ更新後に呼ぶ
   function syncOverlay(state, rawDt) {
-    // 強化パッドのラベル(未定義 or 未解放の pad は非表示)
+    // 強化パッドのラベル(未定義 / 未解放 / MAX 到達の pad は非表示)
     for (const pad of world.pads) {
       const def = CONFIG.upgrades[pad.key];
       const entry = padLabels[pad.key];
       const unlocked = !state.unlockedPads || state.unlockedPads.includes(pad.key);
-      if (!def || !unlocked) {
+      const level = state.save.levels[pad.key] ?? 0;
+      if (!def || !unlocked || level >= def.maxLevel) {
         setLabelHidden(entry, true);
         continue;
       }
       setLabelHidden(entry, false);
-      const level = state.save.levels[pad.key] ?? 0;
-      const maxed = level >= def.maxLevel;
       const cost = state.padCosts[pad.key];
       const paid = state.padPaid[pad.key];
-      const pct = maxed ? 0 : Math.round((paid / cost) * 100);
-      const html = maxed
-        ? `<span class="icon">${def.icon}</span><b>${def.name} Lv.${level}</b><span class="max">MAX</span>`
-        : `<span class="icon">${def.icon}</span><b>${def.name} Lv.${level}</b>` +
-          `<span class="cost">💵 ${cost - paid}</span>` +
-          `<i style="width:${pct}%"></i>`;
+      const pct = Math.round((paid / cost) * 100);
+      const html =
+        `<span class="icon">${def.icon}</span><b>${def.name} Lv.${level}</b>` +
+        `<span class="cost">💵 ${cost - paid}</span>` +
+        `<i style="width:${pct}%"></i>`;
       setLabel(entry, html, pad.x, pad.y);
     }
 

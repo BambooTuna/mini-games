@@ -6,9 +6,10 @@ import {
   createWorld, resolveCampCollision, resolveWallsCollision, resolveBlockers, resolveRectBlockers,
 } from "./world.js";
 import { loadSave, moneyToBills } from "./save.js";
+import { createNavigator } from "./nav.js";
 import { updatePlayer } from "./entities.js";
 import { createScene, CAMERA_AZIMUTH } from "./render/scene.js";
-import { initAudio, playSfx } from "./audio.js";
+import { initAudio, playSfx, updateAmbients, getBgmTrack, setBgmTrack } from "./audio.js";
 import { createQuestTracker } from "./quests.js";
 import { createState, flushSave } from "./game/state.js";
 import { addText, addBillFly, stackMoney } from "./game/helpers.js";
@@ -22,6 +23,7 @@ const container = document.getElementById("game-container");
 const moneyEl = document.getElementById("money-value");
 const moneyCounterEl = document.getElementById("money-counter");
 const meatEl = document.getElementById("meat-value");
+const scoreEl = document.getElementById("score-value");
 const dayIconEl = document.getElementById("day-icon");
 const toastEl = document.getElementById("toast");
 const moveHintEl = document.getElementById("move-hint");
@@ -54,7 +56,15 @@ function bumpMoneyHud() {
   moneyCounterEl.classList.add("bump");
 }
 
-const ui = { showToast, bumpMoneyHud };
+// ダウン時のスコア画面(閉じると combat.respawnPlayer)
+const downOverlay = document.getElementById("down-overlay");
+const downScoreEl = document.getElementById("down-score");
+function showGameOver() {
+  downScoreEl.textContent = `${state.score}`;
+  downOverlay.classList.remove("menu-hidden");
+}
+
+const ui = { showToast, bumpMoneyHud, showGameOver };
 
 // 進捗初期化の確定後 true。リロード完了前に自動セーブが走ってもセーブが復活しないようにする
 let resetting = false;
@@ -64,9 +74,10 @@ const syncSave = () => {
 
 // ---- システムの組み立て ----
 
-const combat = createCombat({ state, world, quests, getStats: () => upgrades.stats(), ui });
+const nav = createNavigator(world);
+const combat = createCombat({ state, world, quests, getStats: () => upgrades.stats(), ui, nav });
 const production = createProduction({ state, world, save, quests });
-const npcs = createNpcs({ state, world, save, damageBear: combat.damageBear });
+const npcs = createNpcs({ state, world, save, damageBear: combat.damageBear, nav, getStats: () => upgrades.stats() });
 const upgrades = createUpgrades({ state, world, save, ui, syncSave, syncHunters: npcs.syncHunters });
 
 upgrades.refreshPadCosts();
@@ -87,17 +98,36 @@ const settingsConfirm = document.getElementById("settings-confirm");
 
 // input.js は container の touchstart/touchend/mousedown を奪う(touchend は preventDefault で
 // click 合成まで消す)ので、メニュー操作は3種とも伝播を止める(こちらで preventDefault はしない)
-for (const el of [settingsButton, settingsMenu]) {
+for (const el of [settingsButton, settingsMenu, downOverlay]) {
   el.addEventListener("touchstart", (e) => e.stopPropagation());
   el.addEventListener("touchend", (e) => e.stopPropagation());
   el.addEventListener("mousedown", (e) => e.stopPropagation());
 }
+
+document.getElementById("down-close").addEventListener("click", () => {
+  downOverlay.classList.add("menu-hidden");
+  combat.respawnPlayer();
+});
 
 function openSettingsMenu() {
   settingsMenu.classList.remove("menu-hidden");
   settingsMain.classList.remove("menu-hidden");
   settingsConfirm.classList.add("menu-hidden");
 }
+
+// BGM 切替: ボタンで選択中トラックを更新(localStorage 保存は audio 側)
+const bgmButtons = [...document.querySelectorAll(".bgm-option")];
+function refreshBgmButtons() {
+  const cur = getBgmTrack();
+  for (const b of bgmButtons) b.classList.toggle("active", b.dataset.bgm === cur);
+}
+for (const b of bgmButtons) {
+  b.addEventListener("click", () => {
+    setBgmTrack(b.dataset.bgm);
+    refreshBgmButtons();
+  });
+}
+refreshBgmButtons();
 settingsButton.addEventListener("click", openSettingsMenu);
 document.getElementById("settings-close").addEventListener("click", () => {
   settingsMenu.classList.add("menu-hidden");
@@ -184,9 +214,26 @@ function updateHud(dt, stats) {
   moneyEl.textContent = `${Math.round(state.displayMoney)}`;
   const carried = state.player.stack.filter((i) => i.kind !== "money").length;
   meatEl.textContent = `${carried}/${stats.carryCap}`;
+  scoreEl.textContent = `${state.score}`;
 
   const dayIcon = state.time.isNight ? "🌙" : "☀️";
   if (dayIconEl.textContent !== dayIcon) dayIconEl.textContent = dayIcon;
+}
+
+// ---- アンビエント音(焚き火は常時、焼き台は加工中のみ。距離減衰は audio 側) ----
+
+const grillStation = (world.stations ?? []).find((s) => s.key === "grill");
+
+function syncAmbients() {
+  const sources = [];
+  if (world.campfire) sources.push({ id: "campfire", kind: "fire", x: world.campfire.x, y: world.campfire.y });
+  if (grillStation) {
+    sources.push({
+      id: "grill", kind: "sizzle", x: grillStation.x, y: grillStation.y,
+      on: state.stations.grill.input.length > 0,
+    });
+  }
+  updateAmbients(sources, state.player.x, state.player.y);
 }
 
 // ---- メインループ ----
@@ -203,7 +250,8 @@ function loop(time) {
   state.shake = Math.max(0, state.shake - rawDt * 45);
   state.zoomPunch = Math.max(0, state.zoomPunch - rawDt * 2.5);
 
-  const move = cameraRelativeMove();
+  // ダウン中はスコア画面を閉じるまで操作不能
+  const move = state.playerDown ? { x: 0, y: 0 } : cameraRelativeMove();
   if (hintVisible && (move.x !== 0 || move.y !== 0)) {
     hintVisible = false;
     moveHintEl.classList.add("hidden");
@@ -235,6 +283,7 @@ function loop(time) {
   updateHud(rawDt, stats);
   state.pickupSfxTimer = Math.max(0, state.pickupSfxTimer - rawDt);
   state.moneySfxTimer = Math.max(0, state.moneySfxTimer - rawDt);
+  syncAmbients();
 
   state.saveTimer += rawDt;
   if (state.saveTimer > 3) {

@@ -7,7 +7,7 @@ import { clone as cloneWithSkeleton } from "../vendor/utils/SkeletonUtils.js";
 const MODEL_KEYS = [
   "player", "hunter", "bear_t1", "bear_t2", "bear_t3", "bear_t4",
   "meat", "meat_slice", "meat_cooked", "tree", "rock", "crate", "igloo",
-  "iceshard", "snowpile", "deadtree", "bones",
+  "iceshard", "snowpile", "deadtree", "bones", "mountain",
   "tent", "campfire", "logpile", "path",
   "icewall", "money", "customer", "lake",
   "counter", "cutboard", "cutboard_2", "cutboard_3", "grill", "grill_2", "grill_3", "tray",
@@ -19,7 +19,7 @@ const glbOverrides = {};
 // height: y寸法 / width: 水平最大寸法 / rotateY: 前方を +Z に合わせる補正 /
 // decorate: ゲーム側の名前契約(weapon/flame/firelight)をテンプレートに足す
 const GLB_SPECS = {
-  player: { height: 50, pose: "Idle", hide: /^handslot/, decorate: addCodeAxe },
+  player: { height: 50, pose: "Idle", hide: /^(handslot|Mage_Hat)/, decorate: (wrap) => { addCodeAxe(wrap); addBackpack(wrap); } },
   hunter: { height: 50, pose: "Idle", hide: /^handslot/, decorate: addCodeAxe },
   customer: { height: 50, pose: "Idle", hide: /^handslot/ },
   bear_t1: { height: 55 }, bear_t2: { height: 55 }, bear_t3: { height: 55 }, bear_t4: { height: 55 },
@@ -85,6 +85,46 @@ function addCodeAxe(wrap) {
   weapon.position.set(14, 16, 2);
   weapon.rotation.z = -0.4;
   wrap.add(weapon);
+}
+
+// プレイヤーの背中にバックパックを付ける(boots レベルで見た目が進化する契約)。
+// render/actors が name="backpack" の表示と pack_1〜3 のティア切り替えを行う
+function addBackpack(wrap) {
+  const g = new THREE.Group();
+  g.name = "backpack";
+  g.visible = false; // Lv0 は未所持。表示は render 側が levels.boots から決める
+  // 肩ひも(全ティア共通。胴体とパックの隙間を埋める)
+  g.add(box(3, 16, 10, 0x4a3526, -5, 24, -12));
+  g.add(box(3, 16, 10, 0x4a3526, 5, 24, -12));
+  // Lv1-3: 小さな布の雑嚢(glb 胴体が厚いので背面 ≈ -16 より外へ出す)
+  const p1 = new THREE.Group();
+  p1.name = "pack_1";
+  p1.add(box(15, 15, 8, 0x8a5a2b, 0, 21, -20));
+  p1.add(box(15, 4, 9, 0x6e4429, 0, 29, -20)); // フラップ
+  // Lv4-6: 中型ザック(サイドポケット + 寝袋ロール)
+  const p2 = new THREE.Group();
+  p2.name = "pack_2";
+  p2.add(box(18, 19, 10, 0x4a7a52, 0, 21, -21));
+  p2.add(box(18, 4, 11, 0x3a5f40, 0, 31, -21));
+  p2.add(box(4, 10, 8, 0x3a5f40, -11, 17, -21));
+  p2.add(box(4, 10, 8, 0x3a5f40, 11, 17, -21));
+  const roll2 = cylinder(3.5, 3.5, 18, 0xb04a4a, 0, 34.5, -21);
+  roll2.rotation.z = Math.PI / 2;
+  p2.add(roll2);
+  // Lv7-8: 大型フレームパック(金属フレーム + 金色バックル)
+  const p3 = new THREE.Group();
+  p3.name = "pack_3";
+  p3.add(box(22, 24, 11, 0x9a4f3a, 0, 21, -22));
+  p3.add(box(22, 4, 12, 0x7a3c2c, 0, 34, -22));
+  p3.add(box(2, 30, 2, 0x8d9aa5, -12, 22, -28));
+  p3.add(box(2, 30, 2, 0x8d9aa5, 12, 22, -28));
+  p3.add(box(5, 3, 2, 0xf3c94e, -6, 25, -28));
+  p3.add(box(5, 3, 2, 0xf3c94e, 6, 25, -28));
+  const roll3 = cylinder(4, 4, 22, 0x4d5860, 0, 38.5, -22);
+  roll3.rotation.z = Math.PI / 2;
+  p3.add(roll3);
+  g.add(p1, p2, p3);
+  wrap.add(g);
 }
 
 // 焚き火glbに炎と光を足す(environment が flame/firelight 名で揺らぎを付ける契約)
@@ -326,7 +366,11 @@ function makeFlame(r, h, x, y, z) {
 // ---- 各モデル ----
 
 const BUILDERS = {
-  player: perInstance(() => buildHumanoid({ coat: 0x3b6ea5, hood: 0x2a5080 })),
+  player: perInstance(() => {
+    const g = buildHumanoid({ coat: 0x3b6ea5, hood: 0x2a5080 });
+    addBackpack(g);
+    return g;
+  }),
   hunter: perInstance(() => buildHumanoid({ coat: 0x3a8a5c, hood: 0x2a6a44 })),
   bear_t1: perInstance(() => buildBear(0xf4f6f8)),
   bear_t2: perInstance(() => buildBear(0xcfd8e0, { angry: true })),
@@ -335,32 +379,42 @@ const BUILDERS = {
 
   meat: () => {
     const g = new THREE.Group();
-    // 骨
-    const bone = cylinder(1.6, 1.6, 16, 0xf6f1e6, 0, 5, 0);
+    // 骨(両端のコブが肉から覗く長さにする)
+    const bone = cylinder(2.2, 2.2, 30, 0xf6f1e6, 0, 8, 0);
     bone.rotation.z = Math.PI / 2;
     g.add(bone);
-    g.add(sphere(3, 0xf6f1e6, -8, 5, 0));
-    g.add(sphere(3, 0xf6f1e6, 8, 5, 0));
-    // 肉
-    g.add(sphere(7.5, 0xd9534f, 0, 5, 0, 1.25, 0.9, 0.95));
-    g.add(sphere(4, 0xef9a9a, -2, 8, 2, 1.2, 0.6, 0.8));
+    g.add(sphere(4.5, 0xf6f1e6, -15, 8, 0));
+    g.add(sphere(4.5, 0xf6f1e6, 15, 8, 0));
+    // 肉(丸み強めの塊 + 脂のハイライト2枚)
+    g.add(sphere(10.5, 0xd9534f, 0, 8, 0, 1.15, 0.8, 0.95));
+    g.add(sphere(6, 0xef9a9a, -2.5, 12, 3, 1.3, 0.5, 0.9));
+    g.add(sphere(3.5, 0xf8d7d7, 5, 12.5, -3.5, 1.2, 0.4, 0.7));
     return g;
   },
 
   meat_slice: () => {
-    // スライス肉(薄いピンクの板 w14×h3)
+    // カット肉(丸みのある厚切り: 脂身の縁 + 赤身 + 中央のサシ)
     const g = new THREE.Group();
-    g.add(box(14, 3, 10, 0xef9a9a, 0, 1.5, 0));
-    g.add(box(10, 3.4, 6, 0xf8c4c4, 0, 1.7, 0));
+    g.add(sphere(9, 0xf3e6d8, 0, 3.0, 0, 1.35, 0.36, 1.08));
+    g.add(sphere(9, 0xe57373, 0, 3.5, 0, 1.26, 0.4, 1.0));
+    g.add(sphere(6, 0xf8b8b8, 0, 5.4, 0, 1.15, 0.36, 0.9));
     return g;
   },
 
   meat_cooked: () => {
-    // 焼き肉(茶ブロック + 焼き目2トーン)
+    // 焼き肉(丸みのあるステーキ + 焼き色の面 + 焼き目3本)
     const g = new THREE.Group();
-    g.add(box(14, 7, 11, 0x8a5230, 0, 3.5, 0));
-    g.add(box(14.6, 1.6, 2.2, 0x5c3318, 0, 5.6, -2.6));
-    g.add(box(14.6, 1.6, 2.2, 0x5c3318, 0, 5.6, 2.6));
+    g.add(sphere(10, 0x8a5230, 0, 5, 0, 1.2, 0.5, 0.92));
+    g.add(sphere(8, 0xa3653c, 0, 8.6, 0, 1.15, 0.22, 0.85));
+    const center = box(16, 1.1, 2.2, 0x5c3318, 0, 9.7, 0);
+    center.rotation.y = 0.35;
+    g.add(center);
+    for (const s of [-1, 1]) {
+      const m = box(13, 1.1, 2.2, 0x5c3318, 0, 8.9, s * 4.6);
+      m.rotation.x = -s * 0.3; // ドーム面に沿わせる
+      m.rotation.y = 0.35;
+      g.add(m);
+    }
     return g;
   },
 
@@ -422,7 +476,7 @@ const BUILDERS = {
 
   tray: () => {
     // 置き場トレイ(テーブル上の山アンカーの目印)。上面はローカル y=2。
-    // render 側が y=40 に置いて上面=42(天板と面一)にする契約
+    // render 側が y=42(天板の上)に置く契約。天板上面と同一高さに沈めると z-fighting でチラつく
     const g = new THREE.Group();
     g.add(box(34, 2, 26, 0x4a3526, 0, 1, 0));
     // 縁
@@ -636,6 +690,18 @@ const BUILDERS = {
     return g;
   },
 
+  mountain: () => {
+    // 雪山(主峰+脇峰2つ、それぞれ雪冠)。マップ外周の景観を埋める大型プロップ
+    const g = new THREE.Group();
+    g.add(cone(110, 230, 0x7d8a94, 0, 115, 0, 5));
+    g.add(cone(50, 90, 0xeef4f8, 0, 195, 0, 5));
+    g.add(cone(70, 150, 0x8d9aa5, 78, 75, 30, 5));
+    g.add(cone(32, 55, 0xeef4f8, 78, 128, 30, 5));
+    g.add(cone(55, 110, 0x6b7680, -70, 55, -20, 5));
+    g.add(cone(26, 45, 0xeef4f8, -70, 92, -20, 5));
+    return g;
+  },
+
   tent: () => {
     const g = new THREE.Group();
     // 三角プリズム本体(rot=0 で入口が南=+Z を向く)
@@ -712,12 +778,14 @@ const BUILDERS = {
   },
 
   money: () => {
-    // 札束(カウンター上の金の山用)
+    // 札束(カウンター上の金の山用)。一番上の札に図柄、帯は上面を横切る
     const g = new THREE.Group();
-    g.add(box(18, 6, 11, 0x4caf50, 0, 3, 0));
-    g.add(box(16, 1.4, 9, 0x66bb6a, 0, 6.6, 0));
+    g.add(box(26, 8, 16, 0x4caf50, 0, 4, 0));
+    g.add(box(24, 1.6, 14, 0x66bb6a, 0, 8.4, 0));
+    g.add(box(17, 1, 4, 0x2e7d32, 0, 8.9, -4.8));
+    g.add(box(17, 1, 4, 0x2e7d32, 0, 8.9, 4.8));
     // 帯
-    g.add(box(19, 6.6, 4.5, 0xf6f1e6, 0, 3, 0));
+    g.add(box(27.5, 10.6, 6.5, 0xf6f1e6, 0, 4, 0));
     return g;
   },
 

@@ -39,11 +39,12 @@ export function loadSave() {
       merged.questIndex = [0, 1, 1, 2, 5, 6, 7][merged.questIndex] ?? 8;
     }
     // migration: クエストチェーン v3(8問→11問)。判定は保存値(raw)の questVersion で行う
-    // (merged は defaultSave のスプレッドで questVersion=3 を持ってしまうため)
-    if (data.questVersion !== 3) {
+    // (merged は defaultSave のスプレッドで最新 questVersion を持ってしまうため)
+    if (data.questVersion !== 3 && data.questVersion !== 4) {
       merged.questIndex = [0, 1, 2, 3, 4, 8, 9, 10][merged.questIndex] ?? 11;
-      merged.questVersion = 3;
     }
+    // migration: v4 はクエストの並び替えのみ(level 系は save.levels から自動達成されるので index はそのまま)
+    merged.questVersion = 4;
     return merged;
   } catch {
     return defaultSave();
@@ -64,7 +65,7 @@ function defaultSave() {
     counterMoney: 0, // カウンター上の未回収金($)
     levels: { weapon: 0, cutboard: 1, grill: 1, boots: 0, hunter: 0 }, // カット台・焼き台は初期から常設
     questIndex: 0,
-    questVersion: 3, // クエストチェーンの世代(migration 判定用)
+    questVersion: 4, // クエストチェーンの世代(migration 判定用)
     unlockedWalls: [], // 破壊済みの氷壁 id
     stack: [],         // 背中スタック [{kind,value}]
     stations: { cutboard: { input: [], output: [] }, grill: { input: [], output: [] } },

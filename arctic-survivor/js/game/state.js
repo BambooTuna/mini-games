@@ -8,7 +8,7 @@ export function createState(world, save) {
     world,
     save,
     player: createPlayer(world.spawn.x, world.spawn.y),
-    bears: world.bearSpawns.map((s) => createBear(s.x, s.y, s.tier)),
+    bears: world.bearSpawns.map((s) => createBear(s.x, s.y, s.tier, s.respawn)),
     meats: [],          // 地面アイテム(被弾ドロップのみ)
     hunters: [],
     customers: [],      // 客レーンの客NPC
@@ -35,6 +35,7 @@ export function createState(world, save) {
     counter: { input: [...(save.counter?.input ?? [])], timer: 0, depositTimer: 0 },
     padPaid: Object.fromEntries(Object.keys(CONFIG.upgrades).map((k) => [k, 0])),
     padCosts: {},
+    padLock: {},         // {[key]: true} レベルアップ直後。パッドから離れるまで次の支払いを止める
     wallPaid: {},        // {[wallId]: 支払い済み額}(render が進捗描画に使う)
     unlockedPads: [],    // 解放済みパッド key(毎フレーム save.levels から導出)
     campStage: 0,        // 拠点の拡張ステージ(render が変化検知して柵を再構築する契約)
@@ -49,6 +50,8 @@ export function createState(world, save) {
     pickupSfxTimer: 0,   // アイテム回収音のスロットル
     moneySfxTimer: 0,    // 金回収音のスロットル
     quest: null,         // render が描画するクエスト HUD 状態
+    score: 0,            // ラン内スコア(プレイヤーの討伐で加算。ダウンでリセット、セーブしない)
+    playerDown: false,   // ダウン中(スコア表示を閉じるまで true。入力とクマのターゲットを止める)
   };
   state.player.stack = [...save.stack];
   return state;

@@ -1,9 +1,16 @@
 // 環境の描画: 拠点(土・柵)と拡張演出、氷壁タイルと破壊アニメ、装飾(開拓対象含む)、
 // 木箱・イグルー、焚き火の揺らぎ、降雪。
 import * as THREE from "three";
+import { mergeGeometries } from "../../vendor/utils/BufferGeometryUtils.js";
 import { insideCamp } from "../world.js";
 import { buildModel } from "../models.js";
 import { flickerFlames } from "./effects3d.js";
+
+// 動かない大量装飾はマテリアル別に1メッシュへ結合してドローコールを減らす。
+// 動的に消える(clear)・光る/揺れる(campfire)・特殊な描画設定(lake/path)は対象外
+const MERGE_KINDS = new Set([
+  "tree", "rock", "iceshard", "snowpile", "deadtree", "bones", "mountain", "tent", "logpile",
+]);
 
 export function createEnvironment(ctx) {
   const { scene, world, clock, fx, camTarget } = ctx;
@@ -77,12 +84,23 @@ export function createEnvironment(ctx) {
   const fireLights = []; // campfire の揺らぎ対象
   const flames = [];
   const clearableDecos = []; // 開拓対象(拡張予定地の木など)。拠点に入ったら伐採演出で消す
+  const mergeBuckets = new Map(); // material → ワールド変換を焼き込んだ geometry[]
   for (const deco of world.decorations) {
     let m;
     try { m = buildModel(deco.kind); } catch { continue; } // 未知 kind は無視
     m.position.set(deco.x, 0, deco.y);
     m.scale.setScalar(deco.scale);
     m.rotation.y = deco.rot ?? (deco.x * 13.37) % (Math.PI * 2); // 向きをばらす(決定的)
+    if (!deco.clear && MERGE_KINDS.has(deco.kind)) {
+      m.updateMatrixWorld(true);
+      m.traverse((o) => {
+        if (!o.isMesh) return;
+        let bucket = mergeBuckets.get(o.material);
+        if (!bucket) mergeBuckets.set(o.material, (bucket = []));
+        bucket.push(o.geometry.clone().applyMatrix4(o.matrixWorld));
+      });
+      continue;
+    }
     m.traverse((o) => {
       if (o.name === "firelight" && o.isLight) fireLights.push({ light: o, base: o.intensity, seed: deco.x });
       else if (o.name === "flame") flames.push({ mesh: o, bx: o.scale.x, by: o.scale.y, bz: o.scale.z, seed: deco.x });
@@ -94,6 +112,11 @@ export function createEnvironment(ctx) {
       if (cleared) m.visible = false;
       clearableDecos.push({ mesh: m, x: deco.x, y: deco.y, cleared });
     }
+  }
+  for (const [material, geos] of mergeBuckets) {
+    const merged = new THREE.Mesh(mergeGeometries(geos), material);
+    merged.castShadow = true;
+    scene.add(merged);
   }
   for (const c of world.crates ?? []) {
     const m = buildModel("crate");

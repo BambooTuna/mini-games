@@ -7,7 +7,7 @@ import { stackMoney, streamBill } from "./helpers.js";
 
 // 施設パッドの可視ルール: そのパッドを目標とするクエストに到達済み(現在 or 過去)、
 // または既にレベル実績があれば可視(旧セーブのパッドが消えないように)
-const PAD_QUEST = { weapon: 4, cutboard: 5, grill: 6, boots: 7, hunter: 9 };
+const PAD_QUEST = { weapon: 4, boots: 5, cutboard: 6, grill: 7, hunter: 9 };
 const PAD_DONE = { weapon: 1, cutboard: 2, grill: 2, boots: 1, hunter: 1 }; // この Lv 以上なら実績ありとみなす
 
 export function createUpgrades({ state, world, save, ui, syncSave, syncHunters }) {
@@ -36,7 +36,7 @@ export function createUpgrades({ state, world, save, ui, syncSave, syncHunters }
     );
   }
 
-  // 拠点の拡張ステージ: オノ Lv1 で南へ、ブーツ Lv1 で東へ、ハンター Lv1 でさらに南へ広がる
+  // 拠点の拡張ステージ: オノ Lv1 で南へ、バックパック(boots) Lv1 で東へ、ハンター Lv1 でさらに南へ広がる
   function campStageIndex() {
     if ((save.levels.hunter ?? 0) >= 1) return 3;
     if ((save.levels.boots ?? 0) >= 1) return 2;
@@ -58,6 +58,14 @@ export function createUpgrades({ state, world, save, ui, syncSave, syncHunters }
 
   function updatePads(dt) {
     const player = state.player;
+    // レベルアップ直後のロックは、パッドから一度離れたら解除(乗りっぱなしの連続課金を防ぐ)
+    for (const [key, locked] of Object.entries(state.padLock)) {
+      if (!locked) continue;
+      const p = world.pads.find((q) => q.key === key);
+      if (!p || Math.hypot(player.x - p.x, player.y - p.y) > p.radius) {
+        state.padLock = { ...state.padLock, [key]: false };
+      }
+    }
     // 範囲が重なるパッドに同時課金しないよう、最寄りの1つにだけ支払う
     let pad = null;
     let best = Infinity;
@@ -66,6 +74,7 @@ export function createUpgrades({ state, world, save, ui, syncSave, syncHunters }
       if (!def) continue;
       if (!state.unlockedPads.includes(p.key)) continue; // 未解放(不可視)パッドに金が吸われない
       if ((save.levels[p.key] ?? 0) >= def.maxLevel) continue;
+      if (state.padLock[p.key]) continue;
       const d = Math.hypot(player.x - p.x, player.y - p.y);
       if (d <= p.radius && d < best) {
         best = d;
@@ -84,6 +93,7 @@ export function createUpgrades({ state, world, save, ui, syncSave, syncHunters }
     if (state.padPaid[pad.key] >= cost) {
       state.padPaid[pad.key] = 0;
       save.levels[pad.key] = (save.levels[pad.key] ?? 0) + 1;
+      state.padLock = { ...state.padLock, [pad.key]: true }; // 離れるまで次レベルの支払いを止める
       refreshPadCosts();
       syncHunters();
       // ステージが上がるレベルアップなら拠点を拡張(render 側が寸法変化を検知して柵を再構築)

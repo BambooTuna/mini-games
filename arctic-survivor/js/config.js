@@ -10,7 +10,7 @@ export const CONFIG = {
     radius: 18,
     baseSpeed: 255,
     attackRange: 75,
-    attackInterval: 0.28, // 秒
+    attackInterval: 0.42, // 秒(旧0.28。頻度を2/3に落として一撃に重みを出す)
     baseDamage: 10,
     lungeImpulse: 260, // 攻撃時にターゲットへ踏み込む初速(updatePlayer 内で減衰消費)
     maxHp: 100,
@@ -33,12 +33,25 @@ export const CONFIG = {
     attackInterval: 0.9,
     windup: 0.35, // 攻撃前の溜め時間(秒)。溜め中は移動しない
     night: { aggroMult: 1.5, speedMult: 1.15 }, // 夜間の凶暴化
-    // ティアごとの強さ。damage=与ダメ、drops=攻撃で落とさせる数、meat=討伐ドロップ数、respawn=再湧き秒
+    alert: { time: 0.35, packRange: 240 }, // 気づき動作の長さと群れへの伝播範囲
+    strafe: { speedMult: 0.6 },            // 攻撃クールダウン中の回り込み速度倍率
+    // 中距離からの突進(tier1以上)。溜め→狙い固定で直進、外すと stun 秒の隙を晒す
+    charge: {
+      minTier: 1, minDist: 120, maxDist: 340,
+      windup: 0.5, speedMult: 3.0, duration: 0.5,
+      damageMult: 1.5, cooldown: 4.5, stun: 0.7, hitRecover: 0.35,
+    },
+    // ボスの叩きつけ(範囲攻撃)。range 以内で発動し radius 内の全員に当たる
+    slam: { range: 140, radius: 130, windup: 0.7, damageMult: 1.3, cooldown: 6 },
+    // ティアごとの強さ。damage=与ダメ、drops=攻撃で落とさせる数、meat=討伐ドロップ数、score=討伐スコア。
+    // 再湧きは world.js の巣ごとの respawn(秒)で指定する(無印の巣は倒したら終わり)
+    // hp はそのティアの想定オノレベルで討伐 5〜7 秒程度になる値
+    // (tier0: 初期 dmg10 ×0.42s → 約5秒。tier1: Lv1〜2、tier2: Lv3〜4、ボス: Lv8前後)
     tiers: [
-      { hp: 30, meatValue: 10, scale: 1.0, damage: 6, drops: 1, meat: 2, respawn: 6 },
-      { hp: 90, meatValue: 22, scale: 1.25, damage: 12, drops: 1, meat: 3, respawn: 10 },
-      { hp: 240, meatValue: 50, scale: 1.55, damage: 20, drops: 2, meat: 4, respawn: 16 },
-      { hp: 700, meatValue: 130, scale: 2.1, boss: true, name: "巨大クマ", damage: 35, drops: 3, meat: 8, respawn: 40 },
+      { hp: 120, meatValue: 10, scale: 1.0, damage: 6, drops: 1, meat: 2, score: 10 },
+      { hp: 240, meatValue: 22, scale: 1.25, damage: 12, drops: 1, meat: 3, score: 25 },
+      { hp: 600, meatValue: 50, scale: 1.55, damage: 20, drops: 2, meat: 4, score: 60 },
+      { hp: 1600, meatValue: 130, scale: 2.1, boss: true, name: "巨大クマ", damage: 35, drops: 3, meat: 8, score: 200 },
     ],
   },
 
@@ -57,6 +70,10 @@ export const CONFIG = {
   // ステーション操作(投入/取出)の間隔。距離判定は各設備のゾーン矩形(world)で行う
   station: { depositInterval: 0.1, withdrawInterval: 0.08 },
 
+  // 投入/取出/支払いの一括化: 残量×間隔がこの秒数を超える場合は1tickの個数を増やし、
+  // どれだけ大量でもおおむねこの時間で流れ終わるようにする(少量は従来どおり1個ずつ)
+  flow: { maxSeconds: 2.5 },
+
   // カウンター: 焼き肉(inKind)を預けると sellInterval ごとに自動販売される
   counter: { inKind: "cooked", sellInterval: 0.5 },
 
@@ -71,7 +88,7 @@ export const CONFIG = {
   upgrades: {
     weapon: {
       name: "オノ強化",
-      icon: "⚔️",
+      icon: "🪓",
       baseCost: 60,
       costGrowth: 1.6,
       maxLevel: 10,
@@ -93,9 +110,10 @@ export const CONFIG = {
       maxLevel: 5,
       effect: (lv) => Math.max(0.3, 0.95 - 0.16 * (lv - 1)), // 加工間隔秒
     },
+    // 運搬量+移動速度。key はセーブ互換のため boots のまま
     boots: {
-      name: "ブーツ強化",
-      icon: "👢",
+      name: "バックパック",
+      icon: "🎒",
       baseCost: 70,
       costGrowth: 1.6,
       maxLevel: 8,
@@ -104,7 +122,7 @@ export const CONFIG = {
     },
     hunter: {
       name: "ハンター雇用",
-      icon: "🏠",
+      icon: "🛖",
       baseCost: 350,
       costGrowth: 2.4,
       maxLevel: 3,
@@ -114,10 +132,10 @@ export const CONFIG = {
 
   hunter: {
     radius: 16,
-    speed: 130,
-    damage: 8,
+    // ステータスは主人公スペック比(オノ/バックパック強化に連動して伸びる)。
+    // 初期値換算: damage 10×0.8=8、speed 255×0.5≒130、capacity 14×0.4≒6
+    ratio: { damage: 0.8, speed: 0.5, capacity: 0.4 },
     attackInterval: 0.7,
-    capacity: 6,
     maxHp: 60,
     restBelow: 0.35, // HPがこの割合を切ると焚き火で休憩
   },

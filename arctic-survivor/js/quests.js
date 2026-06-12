@@ -8,9 +8,10 @@ export const QUESTS = [
   { type: "process", key: "grill", text: "焼き肉を作ろう", target: 3, reward: 120 },
   { type: "sell", text: "肉を5個売ろう", target: 5, reward: 200 },
   { type: "level", key: "weapon", text: "オノを強化しよう", target: 1, reward: 150 },
-  { type: "level", key: "cutboard", text: "スライス台を改造しよう", target: 2, reward: 150 },
+  // 運搬ゲーなのでバックパック(運搬量+速度)を台の改造より先に取らせる
+  { type: "level", key: "boots", text: "バックパックを手に入れよう", target: 1, reward: 150 },
+  { type: "level", key: "cutboard", text: "スライス台を改造しよう", target: 2, reward: 200 },
   { type: "level", key: "grill", text: "焼き台を改造しよう", target: 2, reward: 200 },
-  { type: "level", key: "boots", text: "ブーツを強化しよう", target: 1, reward: 200 },
   { type: "unlockWall", text: "東の氷壁を破壊しよう", target: 1, reward: 400 },
   { type: "level", key: "hunter", text: "ハンターを雇おう", target: 1, reward: 500 },
   { type: "killBoss", text: "巨大クマを討伐しよう", target: 1, reward: 1000 },

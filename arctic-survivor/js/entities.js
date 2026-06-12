@@ -1,7 +1,6 @@
 // エンティティの生成と更新ロジック。
 // 描画は render/、状態の置き換えは main.js のゲームループで行う。
 import { CONFIG } from "./config.js";
-import { routeViaGate } from "./world.js";
 
 let nextId = 1;
 
@@ -25,12 +24,13 @@ export function createPlayer(x, y) {
   };
 }
 
-export function createBear(x, y, tier) {
+export function createBear(x, y, tier, respawn = null) {
   const t = CONFIG.bear.tiers[tier];
   return {
     id: nextId++,
     type: "bear",
     tier,
+    respawn, // 討伐後の再湧き秒(null は再湧きなし=倒したら終わり)
     x, y,
     homeX: x, homeY: y,
     facing: 1,
@@ -39,11 +39,20 @@ export function createBear(x, y, tier) {
     kx: 0, ky: 0, // ノックバック速度
     hp: t.hp,
     maxHp: t.hp,
-    state: "idle", // idle | wander | chase | dead
+    state: "idle", // idle | alert | chase | dead
     wanderX: x, wanderY: y,
     wanderTimer: 0,
     attackTimer: 0,
     windup: 0,    // 攻撃前の溜め残り時間(render 側が溜めアニメに使う)
+    attackKind: "swipe", // 溜め後に出す攻撃: swipe | charge | slam
+    alertT: 0,     // 気づき動作の残り時間
+    aimX: 0, aimY: 1, // 突進の狙い方向(溜め中に更新し、発動時に固定)
+    charge: null,  // 突進中 {dx,dy,t}
+    chargeCd: 0,
+    slamCd: 0,
+    recoverT: 0,   // 突進を外した後などの隙
+    strafeDir: Math.random() < 0.5 ? 1 : -1, // 回り込みの旋回方向
+    strafeT: 0,
     hitFlash: 0,
     squash: 0, // 被弾時のつぶれ演出
   };
@@ -103,6 +112,7 @@ export function createHunter(x, y) {
     state: "hunt", // hunt | deliver | rest
     attackTimer: 0,
     swing: 0,
+    kx: 0, ky: 0, // 被弾ノックバック速度(combat がセット、updateHunter で減衰消費)
     hp: CONFIG.hunter.maxHp,
     maxHp: CONFIG.hunter.maxHp,
     zzzT: 0,       // 休憩中の💤演出タイマー
@@ -139,14 +149,20 @@ export function updatePlayer(player, move, dt, stats, world) {
 }
 
 // target はプレイヤーまたはハンター(呼び出し側が最寄りを選ぶ)。拠点内は安全圏なので
-// 呼び出し側が null を渡し、その間クマは徘徊に戻る。夜間は索敵と足が強化される
-export function updateBear(bear, target, dt, world, isNight) {
+// 呼び出し側が null を渡し、その間クマは徘徊に戻る。夜間は索敵と足が強化される。
+// 状態機械: idle(徘徊) → alert(気づき❗) → chase。chase 中は距離と
+// クールダウンに応じて swipe(溜め→一撃)/charge(突進)/slam(ボスの範囲攻撃)を使い分け、
+// 攻撃クールダウン中はターゲットの周りを回り込む。
+export function updateBear(bear, target, dt, world, isNight, nav) {
   const cfg = CONFIG.bear;
+  const tierCfg = cfg.tiers[bear.tier];
   const aggroRange = cfg.aggroRange * (isNight ? cfg.night.aggroMult : 1);
   const speed = cfg.speed * (isNight ? cfg.night.speedMult : 1);
   bear.hitFlash = Math.max(0, bear.hitFlash - dt);
   bear.squash = Math.max(0, bear.squash - dt * 4);
   bear.attackTimer = Math.max(0, bear.attackTimer - dt);
+  bear.chargeCd = Math.max(0, bear.chargeCd - dt);
+  bear.slamCd = Math.max(0, bear.slamCd - dt);
   bear.moving = false;
 
   // ノックバック(減衰)
@@ -157,47 +173,149 @@ export function updateBear(bear, target, dt, world, isNight) {
     bear.ky *= Math.pow(0.001, dt);
   }
 
-  // 溜め→一撃: 溜め中は chase/wander の移動も状態遷移も一切行わない
-  if (bear.windup > 0) {
-    bear.windup -= dt;
-    if (bear.windup > 0) return null;
-    bear.windup = 0;
-    // 溜め切った瞬間: 射程の1.5倍以内なら一撃、逃げ切られていた(拠点に入った)ら不発
-    if (!target) return null;
-    const dist = Math.hypot(target.x - bear.x, target.y - bear.y);
-    if (dist <= cfg.attackRange * 1.5) {
-      return { type: "bearAttack", damage: CONFIG.bear.tiers[bear.tier].damage, tier: bear.tier, target };
+  if (bear.state === "dead") return null;
+
+  // 突進を外した後の隙(無防備に立ち止まる)
+  if (bear.recoverT > 0) {
+    bear.recoverT -= dt;
+    return null;
+  }
+
+  // 突進中: 溜めで固定した方向へ直進。接触で一撃、外したら隙を晒す
+  if (bear.charge) {
+    const c = bear.charge;
+    c.t -= dt;
+    const sp = speed * cfg.charge.speedMult;
+    bear.x += c.dx * sp * dt;
+    bear.y += c.dy * sp * dt;
+    bear.facing = c.dx > 0 ? 1 : -1;
+    bear.moving = true;
+    bear.bobPhase += dt * sp * 0.09;
+    if (target && Math.hypot(target.x - bear.x, target.y - bear.y) < cfg.attackRange) {
+      bear.charge = null;
+      bear.recoverT = cfg.charge.hitRecover;
+      return {
+        type: "bearAttack",
+        damage: Math.round(tierCfg.damage * cfg.charge.damageMult),
+        tier: bear.tier,
+        target,
+      };
+    }
+    if (c.t <= 0) {
+      bear.charge = null;
+      bear.recoverT = cfg.charge.stun;
     }
     return null;
   }
 
-  if (bear.state === "dead") return null;
+  // 溜め(windup): 溜め中は移動しない。溜め切ったら attackKind の攻撃を出す
+  if (bear.windup > 0) {
+    bear.windup -= dt;
+    if (target) {
+      // 突進・一撃とも溜め中はターゲットへ狙いを更新し続ける(発動時に固定)
+      const d = Math.hypot(target.x - bear.x, target.y - bear.y) || 1;
+      bear.aimX = (target.x - bear.x) / d;
+      bear.aimY = (target.y - bear.y) / d;
+      bear.facing = target.x > bear.x ? 1 : -1;
+    }
+    if (bear.windup > 0) return null;
+    bear.windup = 0;
+    if (bear.attackKind === "charge") {
+      bear.charge = { dx: bear.aimX, dy: bear.aimY, t: cfg.charge.duration };
+      return null;
+    }
+    if (bear.attackKind === "slam") {
+      return {
+        type: "bearSlam",
+        x: bear.x, y: bear.y,
+        radius: cfg.slam.radius,
+        damage: Math.round(tierCfg.damage * cfg.slam.damageMult),
+        tier: bear.tier,
+      };
+    }
+    // swipe: 射程の1.5倍以内なら一撃、逃げ切られていた(拠点に入った)ら不発
+    if (!target) return null;
+    const dist = Math.hypot(target.x - bear.x, target.y - bear.y);
+    if (dist <= cfg.attackRange * 1.5) {
+      return { type: "bearAttack", damage: tierCfg.damage, tier: bear.tier, target };
+    }
+    return null;
+  }
 
   // target なし(全員が拠点内/休憩中)は distance=∞ 扱いで chase が解けて徘徊に戻る
   const distToTarget = target ? Math.hypot(target.x - bear.x, target.y - bear.y) : Infinity;
 
-  if (distToTarget < aggroRange) {
-    bear.state = "chase";
-  } else if (bear.state === "chase" && distToTarget > aggroRange * 1.8) {
+  // 索敵: いきなり襲わず、気づき動作(❗)を挟む。呼び出し側が群れに伝播させる
+  if (distToTarget < aggroRange && bear.state !== "chase" && bear.state !== "alert") {
+    bear.state = "alert";
+    bear.alertT = cfg.alert.time;
+    bear.facing = target.x > bear.x ? 1 : -1;
+    return { type: "bearAlert" };
+  }
+  if ((bear.state === "chase" || bear.state === "alert") && distToTarget > aggroRange * 1.8) {
     bear.state = "idle";
   }
 
-  if (bear.state === "chase") {
-    if (distToTarget > cfg.attackRange) {
-      // 柵をまたぐ場合はゲート経由で追いかける
-      const goal = routeViaGate(world.camp, bear.x, bear.y, target.x, target.y);
-      const d = Math.hypot(goal.x - bear.x, goal.y - bear.y) || 1;
-      const nx = (goal.x - bear.x) / d;
-      bear.x += nx * speed * dt;
-      bear.y += ((goal.y - bear.y) / d) * speed * dt;
-      bear.facing = nx > 0 ? 1 : -1;
-      bear.moving = true;
-      bear.bobPhase += dt * speed * 0.09;
-    } else if (bear.attackTimer <= 0) {
-      // 攻撃範囲内: 溜めを開始(一撃は windup 消化後の独立ブロックで発火)
+  if (bear.state === "alert") {
+    bear.alertT -= dt;
+    if (target) bear.facing = target.x > bear.x ? 1 : -1;
+    if (bear.alertT <= 0) bear.state = "chase";
+    return null;
+  }
+
+  if (bear.state === "chase" && target) {
+    // ボスの叩きつけ: 近距離で範囲攻撃
+    if (tierCfg.boss && bear.slamCd <= 0 && distToTarget < cfg.slam.range) {
+      bear.slamCd = cfg.slam.cooldown;
+      bear.windup = cfg.slam.windup;
+      bear.attackKind = "slam";
+      return null;
+    }
+    // 中距離からの突進(tier1以上)
+    if (
+      bear.tier >= cfg.charge.minTier && bear.chargeCd <= 0 &&
+      distToTarget > cfg.charge.minDist && distToTarget < cfg.charge.maxDist
+    ) {
+      bear.chargeCd = cfg.charge.cooldown;
+      bear.windup = cfg.charge.windup;
+      bear.attackKind = "charge";
+      return null;
+    }
+    // 攻撃範囲内でクールダウンが明けたら一撃の溜めへ
+    if (distToTarget <= cfg.attackRange && bear.attackTimer <= 0) {
       bear.attackTimer = cfg.attackInterval;
       bear.windup = cfg.windup;
+      bear.attackKind = "swipe";
+      return null;
     }
+    // クールダウン中は正面に突っ立たず、間合いを保って回り込む
+    if (distToTarget <= cfg.attackRange * 2.5 && bear.attackTimer > 0.15) {
+      bear.strafeT -= dt;
+      if (bear.strafeT <= 0) {
+        bear.strafeT = 1.5 + Math.random() * 2;
+        if (Math.random() < 0.35) bear.strafeDir *= -1;
+      }
+      const ringD = cfg.attackRange * 1.4;
+      const ang = Math.atan2(bear.y - target.y, bear.x - target.x) + bear.strafeDir;
+      const gx = target.x + Math.cos(ang) * ringD;
+      const gy = target.y + Math.sin(ang) * ringD;
+      const d = Math.hypot(gx - bear.x, gy - bear.y) || 1;
+      bear.x += ((gx - bear.x) / d) * speed * cfg.strafe.speedMult * dt;
+      bear.y += ((gy - bear.y) / d) * speed * cfg.strafe.speedMult * dt;
+      bear.facing = target.x > bear.x ? 1 : -1;
+      bear.moving = true;
+      bear.bobPhase += dt * speed * 0.07;
+      return null;
+    }
+    // 追跡: 柵・氷壁・木を迂回して近づく(拠点へは入れないグリッドを使う)
+    const goal = nav.next(bear, target.x, target.y, dt, "bear");
+    const d = Math.hypot(goal.x - bear.x, goal.y - bear.y) || 1;
+    const nx = (goal.x - bear.x) / d;
+    bear.x += nx * speed * dt;
+    bear.y += ((goal.y - bear.y) / d) * speed * dt;
+    bear.facing = nx > 0 ? 1 : -1;
+    bear.moving = true;
+    bear.bobPhase += dt * speed * 0.09;
   } else {
     // うろうろ
     bear.wanderTimer -= dt;
@@ -315,14 +433,23 @@ export function findNearestBear(bears, x, y, maxDist) {
   return best;
 }
 
-// env = { bears, meats, depositSpot, world, restSpot, wantRest }
-// wantRest(夜間 or 納品先が満杯)か HP 低下で焚き火へ向かい、火の近くで回復する
+// env = { bears, meats, depositSpot, world, restSpot, wantRest, nav, stats }
+// stats = 主人公スペック比の {damage, speed, capacity}(npcs 側が毎フレーム導出)
+// wantRest(夜間 or 納品先が満杯)か HP 低下で焚き火へ向かい、火の近くで回復する。
+// 移動はすべて nav 経由(柵はゲートから、木やイグルーは迂回して向かう)
 export function updateHunter(hunter, env, dt, events) {
   const cfg = CONFIG.hunter;
-  const { bears, meats, depositSpot, world, restSpot, wantRest } = env;
+  const { bears, meats, depositSpot, world, restSpot, wantRest, nav, stats } = env;
   hunter.attackTimer = Math.max(0, hunter.attackTimer - dt);
   hunter.swing = Math.max(0, hunter.swing - dt);
   hunter.moving = false;
+  // 被弾ノックバックの減衰消費(クマと同じ流儀。座標を直接飛ばすとワープして見える)
+  if (Math.abs(hunter.kx) > 1 || Math.abs(hunter.ky) > 1) {
+    hunter.x += hunter.kx * dt;
+    hunter.y += hunter.ky * dt;
+    hunter.kx *= Math.pow(0.001, dt);
+    hunter.ky *= Math.pow(0.001, dt);
+  }
 
   // 休憩へ: 外的要因(夜/満杯)または体力低下。荷物は持ったまま休む
   if (hunter.state !== "rest" && (wantRest || hunter.hp <= hunter.maxHp * cfg.restBelow)) {
@@ -332,9 +459,16 @@ export function updateHunter(hunter, env, dt, events) {
   if (hunter.state === "rest") {
     const d = Math.hypot(restSpot.x - hunter.x, restSpot.y - hunter.y);
     if (d > 30) {
-      const goal = routeViaGate(world.camp, hunter.x, hunter.y, restSpot.x, restSpot.y);
-      moveToward(hunter, goal.x, goal.y, cfg.speed, dt);
+      const goal = nav.next(hunter, restSpot.x, restSpot.y, dt, "hunter");
+      moveToward(hunter, goal.x, goal.y, stats.speed, dt);
     } else {
+      // 休憩に入ったら背負っている肉は先に下ろす(満タン未満でも納品。回復後は手ぶらで狩りへ)
+      if (hunter.stack.length > 0) {
+        for (const item of hunter.stack) {
+          events.push({ type: "hunterDeposit", item, x: hunter.x, y: hunter.y });
+        }
+        hunter.stack = [];
+      }
       // 焚き火の近くで回復 + 💤
       hunter.hp = Math.min(hunter.maxHp, hunter.hp + CONFIG.campfire.hunterRegen * dt);
       hunter.zzzT -= dt;
@@ -344,14 +478,14 @@ export function updateHunter(hunter, env, dt, events) {
       }
       // 回復しきって休憩理由が消えたら復帰
       if (!wantRest && hunter.hp >= hunter.maxHp) {
-        hunter.state = hunter.stack.length >= cfg.capacity ? "deliver" : "hunt";
+        hunter.state = "hunt";
       }
     }
     return;
   }
 
   // 持ちきれたらカット台へ納品
-  if (hunter.stack.length >= cfg.capacity) hunter.state = "deliver";
+  if (hunter.stack.length >= stats.capacity) hunter.state = "deliver";
 
   if (hunter.state === "deliver") {
     const d = Math.hypot(depositSpot.x - hunter.x, depositSpot.y - hunter.y);
@@ -363,16 +497,19 @@ export function updateHunter(hunter, env, dt, events) {
       hunter.stack = [];
       hunter.state = "hunt";
     } else {
-      // 柵をまたぐ場合はゲート経由で向かう
-      const goal = routeViaGate(world.camp, hunter.x, hunter.y, depositSpot.x, depositSpot.y);
-      moveToward(hunter, goal.x, goal.y, cfg.speed, dt);
+      const goal = nav.next(hunter, depositSpot.x, depositSpot.y, dt, "hunter");
+      moveToward(hunter, goal.x, goal.y, stats.speed, dt);
     }
     return;
   }
 
-  // 落ちている生肉が近くにあれば拾いに行く(加工品や札を生肉として再投入させない)
+  // 落ちている生肉が近くにあれば拾いに行く(加工品や札を生肉として再投入させない)。
+  // 木などの押し出し円の奥に落ちた肉は届かないので対象外にする(永久に往復しない)
   const nearItem = meats.find(
-    (m) => !m.collected && !m.magnet && m.kind === "raw" && Math.hypot(m.x - hunter.x, m.y - hunter.y) < 250
+    (m) =>
+      !m.collected && !m.magnet && m.kind === "raw" &&
+      Math.hypot(m.x - hunter.x, m.y - hunter.y) < 250 &&
+      !world.blockers.some((b) => Math.hypot(m.x - b.x, m.y - b.y) < b.r - 6)
   );
   if (nearItem) {
     const d = Math.hypot(nearItem.x - hunter.x, nearItem.y - hunter.y);
@@ -380,8 +517,8 @@ export function updateHunter(hunter, env, dt, events) {
       nearItem.collected = true;
       hunter.stack = [...hunter.stack, { kind: nearItem.kind, value: nearItem.value }];
     } else {
-      const goal = routeViaGate(world.camp, hunter.x, hunter.y, nearItem.x, nearItem.y);
-      moveToward(hunter, goal.x, goal.y, cfg.speed, dt);
+      const goal = nav.next(hunter, nearItem.x, nearItem.y, dt, "hunter");
+      moveToward(hunter, goal.x, goal.y, stats.speed, dt);
     }
     return;
   }
@@ -391,8 +528,8 @@ export function updateHunter(hunter, env, dt, events) {
   if (!bear) return;
   const d = Math.hypot(bear.x - hunter.x, bear.y - hunter.y);
   if (d > 55) {
-    const goal = routeViaGate(world.camp, hunter.x, hunter.y, bear.x, bear.y);
-    moveToward(hunter, goal.x, goal.y, cfg.speed, dt);
+    const goal = nav.next(hunter, bear.x, bear.y, dt, "hunter");
+    moveToward(hunter, goal.x, goal.y, stats.speed, dt);
   } else if (hunter.attackTimer <= 0) {
     hunter.attackTimer = cfg.attackInterval;
     hunter.swing = 0.2;
@@ -400,7 +537,7 @@ export function updateHunter(hunter, env, dt, events) {
       type: "hunterHit",
       bearId: bear.id,
       hunterId: hunter.id,
-      damage: cfg.damage,
+      damage: stats.damage,
       x: hunter.x,
       y: hunter.y,
     });

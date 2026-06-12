@@ -15,7 +15,7 @@ js/
 ├── config.js            ゲームバランスと定数(調整はすべてここ)
 ├── save.js              localStorage セーブ/ロード + マイグレーション
 ├── input.js             ジョイスティック/キーボード入力 → getMove()
-├── audio.js             WebAudio 合成効果音(外部アセットなし)
+├── audio.js             効果音(assets/sfx/ のファイル優先、無い名前は WebAudio 合成にフォールバック)
 ├── quests.js            クエストチェーンの進行と HUD 状態
 ├── world.js             マップレイアウト(拠点/氷壁/施設/巣/装飾)と衝突解決
 ├── entities.js          エンティティの生成と更新(プレイヤー/クマ/ハンター/客/地面アイテム)
