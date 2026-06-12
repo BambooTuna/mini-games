@@ -40,10 +40,10 @@ export function createNpcs({ state, world, save, damageBear, nav, getStats }) {
     else if (inputLen <= CONFIG.process.outputCap * 0.6) cutboardJam = false;
     const wantRest = state.time.isNight || cutboardJam;
 
-    // 東の氷壁が開くまでは壁の先のクマを狙わせない(壁際で立ち往生しない)
-    const eastWall = (world.walls ?? []).find((w) => w.id === "east");
-    const huntableX = eastWall && !eastWall.broken ? eastWall.segments[0].x1 : Infinity;
-    const huntable = state.bears.filter((b) => b.x < huntableX);
+    // 南の氷壁が開くまでは壁の先のクマを狙わせない(壁際で立ち往生しない)
+    const southWall = (world.walls ?? []).find((w) => w.id === "south");
+    const huntableY = southWall && !southWall.broken ? southWall.segments[0].y1 : Infinity;
+    const huntable = state.bears.filter((b) => b.y < huntableY);
     const stats = hunterStats();
 
     for (let i = 0; i < state.hunters.length; i++) {

@@ -3,7 +3,7 @@
 export const CONFIG = {
   world: {
     width: 3200,
-    height: 1800,
+    height: 2800, // 敵エリアはゲート(南)の先に広がるため縦長
   },
 
   player: {

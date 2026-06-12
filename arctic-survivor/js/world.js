@@ -4,7 +4,7 @@ import { CONFIG } from "./config.js";
 // 装飾・プロップ種別ごとの衝突半径(scale を掛けて使う)。bones と path は通行可能なので含めない
 const BLOCKER_RADIUS = {
   tree: 20, rock: 18, iceshard: 16, deadtree: 14, snowpile: 12,
-  campfire: 30, tent: 45, logpile: 35, mountain: 110,
+  campfire: 30, tent: 45, logpile: 35, mountain: 110, house: 60,
 };
 
 // 拠点の段階拡張。西辺(カウンター)と北辺(テーブル)は固定で、南→東の順に広がる。
@@ -18,8 +18,9 @@ export const CAMP_STAGES = [
 
 export function createWorld() {
   const { width, height } = CONFIG.world;
-  const baseX = width * 0.31;
-  const baseY = height / 2;
+  // 拠点はマップ北西寄りに固定(ワールド寸法から導出しない。敵エリアが南へ伸びるため)
+  const baseX = 992;
+  const baseY = 900;
 
   // 柵で囲まれた拠点。南側中央がゲート。
   // 生成は CAMP_STAGES 最終ステージ(最大領域)で行い、main がステージで上書きする。
@@ -30,9 +31,10 @@ export function createWorld() {
     gate: { x: baseX, halfW: 90 }, // 南辺(y2)の開口部。全ステージで x=992, halfW 90 固定
   };
 
-  // 序盤エリア(zone0)を囲む氷壁。東壁だけ壁パッドに支払うと破壊できる。
+  // 序盤エリア(zone0)を囲む氷壁。ゲートの正面にある南壁だけ壁パッドに支払うと破壊でき、
+  // その先(南〜南東)に敵の生息地が広がる。北・東は恒久壁(敵のいない景観側)。
   // 南壁は stage3 拠点(y2=1240)からゲート前の広場を 380 確保する位置。
-  // 東壁は stage2 東柵(x=1422)から幅 270 の通路を確保する位置(ハンターが東へ抜けられる幅)
+  // 西壁は客レーン(y 770〜1030)の高さに開口があり、西の集落から客が歩いてくる
   const zone = { x1: baseX - 620, y1: baseY - 520, x2: baseX + 700, y2: baseY + 720 };
 
   // カウンター(西柵 x=672 に埋め込み、縦長 25×100)。台上北側 inPile に焼き肉、南側 outPile に金が積まれる。
@@ -63,6 +65,18 @@ export function createWorld() {
     ],
   };
 
+  // 西の集落(ロシアの寒村)。客はここの家からレーンの開口を通ってやってくる。
+  // クマの生息地(南壁の先)からは氷壁と森で隔絶された安全圏。
+  // front は家の戸口前(客のスポーン/帰宅点)で、通り(y=900)に向いた側
+  const village = {
+    houses: [
+      { x: 170, y: 640, rot: 0.25 },
+      { x: 300, y: 570, rot: -0.15 },
+      { x: 150, y: 1150, rot: Math.PI - 0.2 },
+      { x: 300, y: 1220, rot: Math.PI + 0.15 },
+    ].map((h) => ({ ...h, front: { x: h.x, y: h.y < baseY ? h.y + 85 : h.y - 85 } })),
+  };
+
   const walls = [
     {
       id: "north",
@@ -70,20 +84,24 @@ export function createWorld() {
       pad: null, permanent: true, broken: false,
     },
     {
+      // 西壁は客レーンの開口(y 770〜1030)で2分割。開口の先が集落への通り
       id: "west",
-      segments: [{ x1: zone.x1, y1: zone.y1, x2: zone.x1, y2: zone.y2 }],
+      segments: [
+        { x1: zone.x1, y1: zone.y1, x2: zone.x1, y2: baseY - 130 },
+        { x1: zone.x1, y1: baseY + 130, x2: zone.x1, y2: zone.y2 },
+      ],
       pad: null, permanent: true, broken: false,
     },
     {
       id: "south",
       segments: [{ x1: zone.x1, y1: zone.y2, x2: zone.x2, y2: zone.y2 }],
-      pad: null, permanent: true, broken: false,
+      pad: { x: baseX, y: zone.y2 - 80, radius: 60, cost: 400 }, // 壁の80北、ゲートの獣道の先(992, 1540)
+      permanent: false, broken: false,
     },
     {
       id: "east",
       segments: [{ x1: zone.x2, y1: zone.y1, x2: zone.x2, y2: zone.y2 }],
-      pad: { x: zone.x2 - 80, y: baseY, radius: 60, cost: 400 }, // 壁の80西(1612, 900)
-      permanent: false, broken: false,
+      pad: null, permanent: true, broken: false,
     },
     // 客レーンのフェンス(壊せない・padなし)。描画は既存 icewall 流用
     {
@@ -98,29 +116,30 @@ export function createWorld() {
     },
   ];
 
-  // クマの巣(巣ごとに複数頭が湧く)。tier0 は zone0 内、tier1+ は東壁の先。
+  // クマの巣(巣ごとに複数頭が湧く)。tier0 は zone0 内、tier1+ は南壁の先(南〜南東)。
   // respawn(秒)を持つ巣だけ討伐後に再湧きする。無印の強敵は倒したら終わり
   // (リポップが速いとベース前の狩りだけで完結してしまうため、持続湧きは遠い巣に限る)。
-  // 旧・西の巣は客レーンと干渉するため廃止。
+  // 北側と西の集落側には巣を置かない(客の来る方向は安全圏)。
   const nests = [
     // tier0(序盤の狩場): ゲート(992, 拠点y2)前の広場を避けて北と南の隅に。ゆっくり再湧き
     { x: baseX, y: baseY - 445, tier: 0, perNest: 2, respawn: 30 },
     { x: baseX - 360, y: baseY + 550, tier: 0, perNest: 2, respawn: 30 }, // (632, 1450) 南西の隅
     // 南東の隅。hunter パッド(1355,1060)まで425 > aggro(260)、東氷壁(x=1692)から十分内側
     { x: baseX + 573, y: baseY + 530, tier: 0, perNest: 2, respawn: 30 }, // (1565, 1430)
-    // 中盤の強敵(東壁の先)。倒したら再湧きしない
-    { x: baseX + 980, y: baseY - 330, tier: 1, perNest: 2 },
-    { x: baseX + 1020, y: baseY + 60, tier: 1, perNest: 3 },
-    { x: baseX + 990, y: baseY + 380, tier: 1, perNest: 3 },
-    { x: baseX + 1380, y: baseY - 380, tier: 2, perNest: 2 },
-    { x: baseX + 1430, y: baseY + 20, tier: 2, perNest: 2 },
-    { x: baseX + 1390, y: baseY + 420, tier: 2, perNest: 2 },
+    // 中盤の強敵(南壁 y=1620 の先)。倒したら再湧きしない
+    { x: 700, y: 1900, tier: 1, perNest: 2 },
+    { x: 1150, y: 1990, tier: 1, perNest: 3 },
+    { x: 1560, y: 1860, tier: 1, perNest: 3 },
+    { x: 950, y: 2330, tier: 2, perNest: 2 },
+    { x: 1500, y: 2400, tier: 2, perNest: 2 },
+    { x: 2000, y: 2120, tier: 2, perNest: 2 },
+    { x: 2120, y: 1380, tier: 2, perNest: 2 }, // 南東(東壁の先へ回り込んだ旧東エリアの南半分)
     // 最奥の遠い巣だけ湧き続ける(狩り尽くした後の持続的な狩場)
-    { x: baseX + 1688, y: baseY - 480, tier: 1, perNest: 2, respawn: 30 }, // (2680, 420)
-    { x: baseX + 1668, y: baseY + 500, tier: 1, perNest: 2, respawn: 30 }, // (2660, 1400)
-    { x: baseX + 1888, y: baseY - 200, tier: 2, perNest: 2, respawn: 45 }, // (2880, 700)
-    // ボスはクエスト対象なので、倒しても時間をおいて戻ってくる
-    { x: baseX + 1800, y: baseY, tier: 3, perNest: 1, respawn: 90 },
+    { x: 560, y: 2640, tier: 1, perNest: 2, respawn: 30 },
+    { x: 2520, y: 2620, tier: 1, perNest: 2, respawn: 30 },
+    { x: 2780, y: 2240, tier: 2, perNest: 2, respawn: 45 },
+    // ボスはクエスト対象なので、倒しても時間をおいて戻ってくる(南東の最奥)
+    { x: 2350, y: 2480, tier: 3, perNest: 1, respawn: 90 },
   ];
 
   // 加工ステーション(拠点北側、常設)。横置きテーブル(hw100×hh25)で台上東に inPile・西に outPile、
@@ -148,7 +167,7 @@ export function createWorld() {
   // プロップは拠点(stage2 最大領域)の外へ(中央プラザとゲート→加工台→カウンターの動線を空ける)。
   // 木箱の山は stage2 東柵の外、イグルーは北柵の外。render 側がトップレベル参照で描画する
   // ブロッカー西端(1490-50-14=1426)が stage2 東柵(x=1422)の内側へ届かない位置。
-  // 壁パッド(1612,900)・東氷壁(x=1692)のどちらにも十分な余白がある
+  // 東氷壁(x=1692)へも十分な余白がある
   const crates = [
     { x: baseX + 498, y: baseY - 200 }, // (1490, 700)
     { x: baseX + 532, y: baseY - 176 }, // (1524, 724)
@@ -178,6 +197,7 @@ export function createWorld() {
 
     counter,
     customerLane,
+    village,
     stations,
 
     // 焚き火(回復・休憩地点)。decorations の campfire と同座標(makeDecorations 側が参照)
@@ -213,7 +233,7 @@ export function createWorld() {
 
     decorations: makeDecorations(
       width, height, camp, { x: baseX, y: baseY }, nests, zone, walls,
-      customerLane, counter, blockers
+      customerLane, counter, blockers, village
     ),
   };
 }
@@ -340,7 +360,7 @@ function distToSegment(x, y, s) {
   return Math.hypot(x - s.x1, y - cy);
 }
 
-function makeDecorations(width, height, camp, base, nests, zone, walls, lane, counter, blockers) {
+function makeDecorations(width, height, camp, base, nests, zone, walls, lane, counter, blockers, village) {
   const decos = [];
   // 決定的な疑似乱数で装飾を散らす(リロードしても同じ配置)
   let seed = 42;
@@ -360,12 +380,12 @@ function makeDecorations(width, height, camp, base, nests, zone, walls, lane, co
     blockers.push(b);
   };
 
-  // 凍った湖(ブロッカーなし=氷の上は歩ける)。西2つは到達不能エリアの景観、東2つは解放後エリア
+  // 凍った湖(ブロッカーなし=氷の上は歩ける)。北東は景観、南2つは解放後の敵エリア
   const lakes = [
-    { x: 200, y: 520, scale: 1.0 },
-    { x: 230, y: 1280, scale: 0.75 },
+    { x: 160, y: 1850, scale: 1.0 },
     { x: 2250, y: 1560, scale: 1.15 },
     { x: 2620, y: 230, scale: 0.9 },
+    { x: 1150, y: 2650, scale: 0.9 },
   ];
   for (const l of lakes) decos.push({ kind: "lake", ...l });
   const offLake = (x, y) => lakes.every((l) => Math.hypot(x - l.x, y - l.y) > 150 * l.scale + 30);
@@ -385,11 +405,10 @@ function makeDecorations(width, height, camp, base, nests, zone, walls, lane, co
     }
   };
   ridge(120, 80, 3080, 80, 13);      // 北縁
-  // 南縁: zone0 の南氷壁(y=1620)へ山がめり込まないよう東エリアにだけ置く
-  // (壁の南西側は西の森林帯が埋める)
-  ridge(1760, 1720, 3080, 1720, 9);
-  ridge(80, 260, 80, 1540, 6);       // 西縁(到達不能帯)
-  ridge(3120, 260, 3120, 1540, 6);   // 東縁
+  ridge(120, 2920, 3080, 2920, 13);  // 南縁(敵エリアの果て)
+  ridge(80, 260, 80, 460, 2);        // 西縁・集落の北
+  ridge(80, 1380, 80, 2740, 6);      // 西縁・集落の南〜南端
+  ridge(3120, 260, 3120, 2740, 9);   // 東縁
   const nearMountain = (x, y) => mountains.some((m) => Math.hypot(x - m.x, y - m.y) < m.r);
 
   const wallPad = walls.find((w) => w.pad)?.pad;
@@ -398,10 +417,13 @@ function makeDecorations(width, height, camp, base, nests, zone, walls, lane, co
   // 客レーンの矩形(マージン40)とカウンター周辺(半径160)には装飾を置かない
   const inLane = (x, y) =>
     x > zone.x1 - 40 && x < camp.x1 + 40 && y > lane.y - 170 && y < lane.y + 170;
+  // 集落の敷地(家と通り、客の動線)にも散布しない
+  const inVillage = (x, y) => x < zone.x1 + 40 && y > 460 && y < 1340;
   const blocked = (x, y) =>
     insideCamp(camp, x, y, 120) ||
     nearWallLine(x, y) ||
     inLane(x, y) ||
+    inVillage(x, y) ||
     !offLake(x, y) ||
     nearMountain(x, y) ||
     Math.hypot(x - counter.x, y - counter.y) < 160 ||
@@ -446,12 +468,13 @@ function makeDecorations(width, height, camp, base, nests, zone, walls, lane, co
 
   // 外周の森林帯(可動域の外と解放後エリアの縁を森で埋める)
   const bands = [
-    { x1: 60, y1: 60, x2: 350, y2: 1740, n: 120 },    // 西の到達不能帯
+    { x1: 60, y1: 60, x2: 350, y2: 440, n: 30 },      // 西・集落の北
+    { x1: 60, y1: 1360, x2: 350, y2: 2840, n: 110 },  // 西・集落の南(クマの生息地との隔絶帯)
     { x1: 372, y1: 60, x2: 1692, y2: 330, n: 70 },    // zone0 北壁の外
-    { x1: 372, y1: 1660, x2: 1692, y2: 1760, n: 60 }, // zone0 南壁(y=1620)の外
-    { x1: 1692, y1: 60, x2: 3140, y2: 320, n: 80 },   // 東エリア北縁
-    { x1: 1692, y1: 1480, x2: 3140, y2: 1740, n: 80 },// 東エリア南縁
-    { x1: 2960, y1: 320, x2: 3140, y2: 1480, n: 50 }, // 最東端
+    { x1: 1692, y1: 60, x2: 3140, y2: 320, n: 80 },   // 北東の縁
+    { x1: 1750, y1: 400, x2: 3080, y2: 1000, n: 90 }, // 北東ポケット(敵のいない森)
+    { x1: 372, y1: 2700, x2: 3080, y2: 2880, n: 100 },// 南端の森
+    { x1: 2960, y1: 320, x2: 3140, y2: 2740, n: 70 }, // 最東端
   ];
   for (const b of bands) {
     for (let i = 0; i < b.n; i++) {
@@ -500,6 +523,19 @@ function makeDecorations(width, height, camp, base, nests, zone, walls, lane, co
   pushDeco({ kind: "iceshard", x: lane.doorX, y: base.y - 100, scale: 1.15 });
   pushDeco({ kind: "iceshard", x: lane.doorX, y: base.y + 100, scale: 1.15 });
 
+  // 西の集落: 家(客の出どころ)と、通りから出入口へ続く道・生活感のあるプロップ
+  for (const h of village.houses) {
+    pushDeco({ kind: "house", x: h.x, y: h.y, scale: 1, rot: h.rot });
+  }
+  for (const x of [160, 250, 340]) {
+    const p = { kind: "path", x, y: base.y, scale: 1, rot: Math.PI / 2 };
+    decos.push(p); // 通り(横向きの道。ブロッカーなし)
+  }
+  pushDeco({ kind: "logpile", x: 238, y: 735, scale: 0.9, rot: Math.PI / 2 });
+  pushDeco({ kind: "snowpile", x: 100, y: 760, scale: 0.9 });
+  pushDeco({ kind: "snowpile", x: 230, y: 1075, scale: 0.8 });
+  pushDeco({ kind: "deadtree", x: 96, y: 1040, scale: 0.9 });
+
   // 拠点周りのプロップ(tent/path は rot で向きを指定: rot=0 が南向き/縦長)。
   // テントは北柵(y=660)の外(ブロッカー r45+14 が柵内に届かない: 585+59=644 / 598+59=657 < 660)、
   // 薪は stage2 東柵(x=1422)の外(1490-35-14=1441 > 1422)、壁パッドへの動線脇。
@@ -515,6 +551,11 @@ function makeDecorations(width, height, camp, base, nests, zone, walls, lane, co
   decos.push({ kind: "path", x: base.x, y: base.y + 180, scale: 1, rot: 0 });
   decos.push({ kind: "path", x: base.x, y: base.y + 250, scale: 1, rot: 0 });
   decos.push({ kind: "path", x: base.x, y: base.y + 320, scale: 1, rot: 0 });
+  // 壁パッド(992,1540)へ、さらに壊した南壁の先(敵エリア)へと誘う続き
+  decos.push({ kind: "path", x: base.x, y: base.y + 490, scale: 1, rot: 0 });
+  decos.push({ kind: "path", x: base.x, y: base.y + 560, scale: 1, rot: 0 });
+  decos.push({ kind: "path", x: base.x, y: base.y + 800, scale: 1, rot: 0 });
+  decos.push({ kind: "path", x: base.x, y: base.y + 870, scale: 1, rot: 0 });
 
   return decos;
 }

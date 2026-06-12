@@ -147,6 +147,7 @@ export function createProduction({ state, world, save, quests }) {
       const oldest = waiting.reduce((a, b) => (a.timer < b.timer ? a : b));
       oldest.carrying = true;
       oldest.state = "leave";
+      oldest.wp = 0; // 復路(出入口→通り→家)を最初から歩く
     }
   }
 

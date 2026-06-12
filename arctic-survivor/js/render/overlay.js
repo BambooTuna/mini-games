@@ -90,7 +90,7 @@ export function createOverlayUi(ctx) {
       }
       bar.dataset.alive = "1";
       const ratio = Math.max(0, player.hp / player.maxHp);
-      const p = project(player.x, 86, player.y);
+      const p = project(player.x, 112, player.y);
       bar.style.transform = `translate(-50%, -50%) translate(${p.x}px, ${p.y}px)`;
       bar.firstChild.style.width = `${Math.max(4, ratio * 100)}%`;
       bar.firstChild.style.background = ratio > 0.5 ? "#7CFC8a" : ratio > 0.25 ? "#ffd84d" : "#e25555";
@@ -107,7 +107,7 @@ export function createOverlayUi(ctx) {
         hpBars.set(hunter.id, bar);
       }
       bar.dataset.alive = "1";
-      const p = project(hunter.x, 82, hunter.y);
+      const p = project(hunter.x, 108, hunter.y);
       bar.style.transform = `translate(-50%, -50%) translate(${p.x}px, ${p.y}px)`;
       bar.firstChild.style.width = `${Math.max(4, (hunter.hp / hunter.maxHp) * 100)}%`;
     }

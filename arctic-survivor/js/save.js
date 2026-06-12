@@ -45,6 +45,8 @@ export function loadSave() {
     }
     // migration: v4 はクエストの並び替えのみ(level 系は save.levels から自動達成されるので index はそのまま)
     merged.questVersion = 4;
+    // migration: マップ南向き化で壊せる氷壁が東→南に移った(進行は引き継ぐ)
+    merged.unlockedWalls = (merged.unlockedWalls ?? []).map((id) => (id === "east" ? "south" : id));
     return merged;
   } catch {
     return defaultSave();

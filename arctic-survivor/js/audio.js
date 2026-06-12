@@ -6,7 +6,7 @@ const MASTER_VOLUME = 0.25;
 // 出典: Kenney Impact Sounds / Casino Audio (CC0)、sizzle は Pixabay (frying steak)
 const SFX_FILE_COUNTS = { hit: 5, kill: 5, chop: 5, shatter: 5, pickup: 5, sell: 3, money: 5, pay: 4, sizzle: 3 };
 // 素材ごとの音量差を均すゲイン(volumedetect の実測に基づく。sell/pickup は連続再生されるので控えめ)
-const SFX_FILE_GAINS = { hit: 0.75, kill: 0.9, chop: 1.2, shatter: 1.4, pickup: 0.5, sell: 1.0, money: 0.7, pay: 1.3, sizzle: 0.6 };
+const SFX_FILE_GAINS = { hit: 0.65, kill: 0.95, chop: 1.2, shatter: 1.4, pickup: 0.5, sell: 1.0, money: 0.7, pay: 1.3, sizzle: 0.6 };
 
 // アンビエントループ(kind -> 素材と減衰)。radius はワールド単位(プレイヤー身長=50)で聞こえる距離
 const AMBIENT_DEFS = {

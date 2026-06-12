@@ -79,18 +79,24 @@ export function createGroundItem(x, y, kind, value) {
   };
 }
 
-// 客NPC: 西の客レーンの出入口(doorX)から来て、カウンター前の spot で待つ
+// 客NPC: 西の集落の家から客レーンの出入口(doorX)を通って、カウンター前の spot で待つ
 export function createCustomer(world, customers) {
   const lane = world.customerLane;
   const spots = lane?.spots ?? [];
   const used = new Set(customers.map((c) => c.spot));
   let spot = spots.findIndex((_, i) => !used.has(i));
   if (spot < 0) spot = 0;
+  const houses = world.village?.houses ?? [];
+  const home = houses.length
+    ? houses[spot % houses.length].front
+    : { x: (lane?.doorX ?? 0) - 40, y: lane?.y ?? 0 };
   return {
     id: nextId++,
     type: "customer",
-    x: lane?.doorX ?? 0,
-    y: lane?.y ?? 0,
+    x: home.x,
+    y: home.y,
+    home,             // 家の戸口前(スポーン/帰宅点)
+    wp: 0,            // 経路(家→通り→出入口→spot)の現在区間
     facing: 1,
     moving: false,
     bobPhase: 0,
@@ -371,49 +377,65 @@ export function updateGroundItem(item, player, dt) {
   }
 }
 
-// 客NPC: 出入口 → カウンター前 spot で待機 → 帰る → しばらくして再来店。
-// 移動は moveToward のみ(レーン内に閉じるので柵・壁の衝突解決は使わない)。
+// 客NPC: 家 → 集落の通り → 出入口 → カウンター前 spot で待機 → 来た道を帰る → 再来店。
+// 移動は moveToward のみ(集落とレーン内に閉じるので柵・壁の衝突解決は使わない)。
 export function updateCustomer(customer, world, dt, isNight) {
   const cfg = CONFIG.customer;
   const lane = world.customerLane;
   if (!lane) return;
   const spot = lane.spots?.[customer.spot] ?? { x: lane.doorX, y: lane.y };
+  const home = customer.home;
+  // 往路の経由点(復路は逆順)。家の前→通り(y=lane.y)→レーン出入口→カウンター前
+  const route = [{ x: home.x, y: lane.y }, { x: lane.doorX, y: lane.y }, spot];
   customer.moving = false;
 
   // 夜は店じまい: 待機中の客は帰り、再来店は朝まで止まる
   if (isNight && (customer.state === "arrive" || customer.state === "wait")) {
     customer.state = "leave";
+    // まだレーンに入っていなければ出入口へ戻らず通りから直帰する
+    customer.wp = customer.x < lane.doorX - 20 ? 1 : 0;
   }
 
   if (customer.state === "arrive") {
-    const d = Math.hypot(spot.x - customer.x, spot.y - customer.y);
-    if (d < 10) {
-      customer.state = "wait";
-      customer.timer = cfg.waitMin + Math.random() * (cfg.waitMax - cfg.waitMin);
+    const target = route[customer.wp];
+    if (Math.hypot(target.x - customer.x, target.y - customer.y) < 10) {
+      customer.wp += 1;
+      if (customer.wp >= route.length) {
+        customer.state = "wait";
+        customer.timer = cfg.waitMin + Math.random() * (cfg.waitMax - cfg.waitMin);
+      }
     } else {
-      moveToward(customer, spot.x, spot.y, cfg.speed, dt);
+      moveToward(customer, target.x, target.y, cfg.speed, dt);
     }
   } else if (customer.state === "wait") {
     customer.facing = 1; // カウンター(東)を向いて待つ
     customer.timer -= dt;
     // 時間切れは買えずに帰る(carrying は売却着弾でのみ true になる)
-    if (customer.timer <= 0) customer.state = "leave";
+    if (customer.timer <= 0) {
+      customer.state = "leave";
+      customer.wp = 0;
+    }
   } else if (customer.state === "leave") {
-    const d = Math.hypot(lane.doorX - customer.x, lane.y - customer.y);
-    if (d < 20) {
-      customer.state = "gone";
-      customer.timer = cfg.rejoinMin + Math.random() * (cfg.rejoinMax - cfg.rejoinMin);
+    const back = [{ x: lane.doorX, y: lane.y }, { x: home.x, y: lane.y }, home];
+    const target = back[Math.min(customer.wp, back.length - 1)];
+    if (Math.hypot(target.x - customer.x, target.y - customer.y) < 14) {
+      customer.wp += 1;
+      if (customer.wp >= back.length) {
+        customer.state = "gone";
+        customer.timer = cfg.rejoinMin + Math.random() * (cfg.rejoinMax - cfg.rejoinMin);
+      }
     } else {
-      moveToward(customer, lane.doorX, lane.y, cfg.speed, dt);
+      moveToward(customer, target.x, target.y, cfg.speed, dt);
     }
   } else {
-    // gone: 出入口の外で見えないまま待機して再来店(夜間は朝まで来ない)
+    // gone: 家の中(非表示)で待機して再来店(夜間は朝まで来ない)
     if (!isNight) customer.timer -= dt;
     if (customer.timer <= 0) {
       customer.carrying = false;
       customer.state = "arrive";
-      customer.x = lane.doorX;
-      customer.y = lane.y;
+      customer.wp = 0;
+      customer.x = home.x;
+      customer.y = home.y;
     }
   }
 }

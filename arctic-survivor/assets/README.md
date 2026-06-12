@@ -85,7 +85,9 @@ BGM（`bgm_snow` / `bgm_calm` / `bgm_ambient`）は常時ループ。設定メ�
 
 | ファイル | 出典 | ライセンス |
 | --- | --- | --- |
-| hit / kill / chop / shatter / pickup | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) | CC0 |
+| chop / shatter / pickup | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) | CC0 |
+| hit | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) impactPunch_heavy をトリム（斧のキレある打撃） | CC0 |
+| kill | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) impactPunch をピッチダウン＋impactSoft を重ねた重い撃破音 | CC0 |
 | money | [Kenney Casino Audio](https://kenney.nl/assets/casino-audio) chips-handle / chips-collide をローパス8.5kでトリム（チップがジャラッと流れる現金音） | CC0 |
 | sell / pay | [Kenney Casino Audio](https://kenney.nl/assets/casino-audio)（sell=chip-lay、pay=card-shove 0.45s トリム） | CC0 |
 | sizzle / ambient_sizzle | [Frying Steak（Pixabay, freesound_community）](https://pixabay.com/sound-effects/household-frying-steak-74556/) | Pixabay Content License |

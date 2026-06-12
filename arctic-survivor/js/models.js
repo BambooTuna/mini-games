@@ -8,7 +8,7 @@ const MODEL_KEYS = [
   "player", "hunter", "bear_t1", "bear_t2", "bear_t3", "bear_t4",
   "meat", "meat_slice", "meat_cooked", "tree", "rock", "crate", "igloo",
   "iceshard", "snowpile", "deadtree", "bones", "mountain",
-  "tent", "campfire", "logpile", "path",
+  "tent", "campfire", "logpile", "path", "house",
   "icewall", "money", "customer", "lake",
   "counter", "cutboard", "cutboard_2", "cutboard_3", "grill", "grill_2", "grill_3", "tray",
 ];
@@ -31,6 +31,7 @@ const GLB_SPECS = {
   tent: { height: 51 },
   campfire: { width: 55, decorate: addFireGlow },
   logpile: { width: 44 },
+  house: { width: 110 },
 };
 
 // 足元 y=0・中心 x/z=0・目安サイズへスケールしたテンプレートに包む
@@ -758,6 +759,45 @@ const BUILDERS = {
       return l;
     };
     g.add(log(-11, 5), log(0, 5), log(11, 5), log(-5.5, 14), log(5.5, 14), log(0, 23));
+    return g;
+  },
+
+  house: () => {
+    // ロシアの寒村の丸太小屋(イズバ)。rot=0 で戸口が南=+Z を向く
+    const g = new THREE.Group();
+    g.add(box(96, 44, 70, 0x8a5a32, 0, 22, 0)); // 丸太壁の本体
+    for (let i = 0; i < 4; i++) g.add(box(98, 2.5, 72, 0x6e4424, 0, 8 + i * 10, 0)); // 丸太の継ぎ目
+    // 四隅の交差した丸太の木口
+    for (const [x, z] of [[-48, 35], [48, 35], [-48, -35], [48, -35]]) {
+      g.add(cylinder(5, 5, 50, 0x7a4a22, x, 25, z));
+    }
+    // 切妻屋根(三角プリズム、棟は東西)と雪
+    const roof = new THREE.Mesh(
+      geo("house-roof", () => {
+        const t = new THREE.CylinderGeometry(50, 50, 108, 3, 1);
+        t.rotateY(Math.PI);
+        t.rotateX(Math.PI / 2);
+        return t;
+      }),
+      mat(0x46627e)
+    );
+    roof.rotation.y = Math.PI / 2;
+    roof.position.y = 69;
+    g.add(roof);
+    g.add(box(112, 5, 14, 0xf4f8fb, 0, 118, 0)); // 棟の雪
+    g.add(box(11, 30, 11, 0x9aa4ae, 28, 105, 0)); // 煙突
+    // 戸口と、暖色に灯る窓(夜の集落の生活感)
+    g.add(box(22, 32, 3, 0x4e3018, 0, 16, 35.5));
+    const winMat = cachedMat("house-window", () =>
+      new THREE.MeshLambertMaterial({ color: 0xffe2a0, emissive: 0xff9c40, emissiveIntensity: 0.55 })
+    );
+    for (const x of [-30, 30]) {
+      const w = new THREE.Mesh(geo("house-win", () => new THREE.BoxGeometry(15, 14, 3)), winMat);
+      w.position.set(x, 27, 35.5);
+      g.add(w);
+      g.add(box(19, 3, 3, 0xe8e0d0, x, 36.5, 35.8)); // 窓飾り(ナリチニキ風の白枠)
+      g.add(box(19, 3, 3, 0xe8e0d0, x, 17.5, 35.8));
+    }
     return g;
   },
 

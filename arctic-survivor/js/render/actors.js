@@ -8,8 +8,17 @@ import { itemModelKey, STACK_H } from "./effects3d.js";
 export function createActors(ctx) {
   const { scene, clock } = ctx;
 
+  // 人型(主人公/ハンター/客)の見た目スケール。当たり判定やHIT範囲は据え置き
+  const HUMAN_SCALE = 1.5;
+
   const playerModel = buildModel("player");
+  playerModel.scale.setScalar(HUMAN_SCALE);
   scene.add(playerModel);
+
+  // トルネード斬りの回転状態(攻撃1回につき1回転のペース)
+  const SPIN_SPEED = (Math.PI * 2) / CONFIG.player.attackInterval;
+  let spinAngle = 0; // 累積回転角。0 = 非回転
+  let spinHold = 0;  // 回転を維持する残り時間(攻撃が続く限り更新される)
   let lastWeaponLv = -1; // 武器の見た目成長の変化検知
   let lastBootsLv = -1;  // バックパック(boots)の見た目ティアの変化検知
 
@@ -113,14 +122,14 @@ export function createActors(ctx) {
   const playerChain = createStackChain(40);
   const hunterChains = new Map(); // hunterId -> chain(表示上限8)
 
-  // 背中アンカー(背中側へ -13、肩の高さ 26 + bob)
+  // 背中アンカー(背中側へ -13、肩の高さ 26 + bob。HUMAN_SCALE に追従)
   function backAnchor(e) {
     const angle = headings.get(e.id)?.angle ?? 0;
     const bob = e.moving ? Math.abs(Math.sin(e.bobPhase)) * 6 : 0;
     return {
-      x: e.x - Math.sin(angle) * 13,
-      y: 26 + bob,
-      z: e.y - Math.cos(angle) * 13,
+      x: e.x - Math.sin(angle) * 13 * HUMAN_SCALE,
+      y: 26 * HUMAN_SCALE + bob,
+      z: e.y - Math.cos(angle) * 13 * HUMAN_SCALE,
     };
   }
 
@@ -199,6 +208,23 @@ export function createActors(ctx) {
 
     poseHumanoid(playerModel, player, dt);
 
+    // 主人公の攻撃はトルネード斬り(見た目のみ): 攻撃が続く間オノを水平に構えて回転し続け、
+    // やめたら一周の切れ目まで回りきって止まる(回転は heading への加算なので turn() と干渉しない)
+    if (player.swing > 0) spinHold = CONFIG.player.attackInterval + 0.1; // 次の攻撃まで途切れない保持時間
+    if (spinHold > 0) {
+      spinHold -= dt;
+      spinAngle += SPIN_SPEED * dt;
+    } else if (spinAngle > 0) {
+      const stopAt = Math.ceil(spinAngle / (Math.PI * 2)) * Math.PI * 2;
+      spinAngle = Math.min(stopAt, spinAngle + SPIN_SPEED * dt);
+      if (spinAngle >= stopAt) spinAngle = 0;
+    }
+    if (spinAngle > 0) {
+      playerModel.rotation.y += spinAngle;
+      const weapon = playerModel.getObjectByName("weapon");
+      if (weapon) weapon.rotation.x = -1.5;
+    }
+
     // 武器の見た目成長(レベル変化時のみ適用)
     const weaponLv = state.save.levels?.weapon ?? 0;
     if (weaponLv !== lastWeaponLv) {
@@ -234,7 +260,7 @@ export function createActors(ctx) {
     const targetPos = state.quest?.targetPos;
     if (targetPos) {
       arrowGroup.visible = true;
-      arrowGroup.position.set(player.x, 95 + Math.sin(clock.elapsed * 4) * 6, player.y);
+      arrowGroup.position.set(player.x, 125 + Math.sin(clock.elapsed * 4) * 6, player.y);
       arrowGroup.rotation.y = Math.atan2(targetPos.x - player.x, targetPos.y - player.y);
     } else {
       arrowGroup.visible = false;
@@ -265,6 +291,7 @@ export function createActors(ctx) {
     for (const hunter of state.hunters) {
       const m = acquire(pools.hunter, hunter.id, "hunter");
       if (!m) continue;
+      m.scale.setScalar(HUMAN_SCALE);
       poseHumanoid(m, hunter, dt);
       let chain = hunterChains.get(hunter.id);
       if (!chain) {
@@ -298,11 +325,12 @@ export function createActors(ctx) {
       const custVisible = cust.state !== "gone";
       if (m.visible !== custVisible) m.visible = custVisible;
       if (!custVisible) continue;
+      m.scale.setScalar(HUMAN_SCALE);
       poseHumanoid(m, cust, dt);
       if (m.userData.carry === undefined) {
         try {
           const carry = buildModel("meat");
-          carry.scale.setScalar(0.8);
+          carry.scale.setScalar(0.8 / HUMAN_SCALE); // 親のスケールを相殺(肉の見た目サイズを揃える)
           carry.position.set(0, 50, 3);
           carry.visible = false;
           m.add(carry);

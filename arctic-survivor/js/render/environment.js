@@ -9,7 +9,7 @@ import { flickerFlames } from "./effects3d.js";
 // 動かない大量装飾はマテリアル別に1メッシュへ結合してドローコールを減らす。
 // 動的に消える(clear)・光る/揺れる(campfire)・特殊な描画設定(lake/path)は対象外
 const MERGE_KINDS = new Set([
-  "tree", "rock", "iceshard", "snowpile", "deadtree", "bones", "mountain", "tent", "logpile",
+  "tree", "rock", "iceshard", "snowpile", "deadtree", "bones", "mountain", "tent", "logpile", "house",
 ]);
 
 export function createEnvironment(ctx) {
