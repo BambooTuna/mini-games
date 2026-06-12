@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="utf-8"><style>body{margin:0;background:#dfe9f0}</style></head>
+<body>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+<script type="module">
+// 差し替えモデル検証用の一時ページ(検証後に削除)
+import * as THREE from "three";
+import { loadModelOverrides, buildModel } from "./js/models.js";
+
+const KEYS = [
+  ["player", "hunter", "customer", "campfire"],
+  ["tree", "rock", "crate", "logpile"],
+  ["tent", "igloo", "snowpile", "bear_t1"],
+];
+
+await loadModelOverrides();
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe9f0);
+scene.add(new THREE.HemisphereLight(0xeaf4ff, 0xcfd8e0, 1.1));
+const sun = new THREE.DirectionalLight(0xfff4e0, 1.9);
+sun.position.set(120, 300, 200);
+scene.add(sun);
+
+const SX = 150, SZ = 200;
+for (let r = 0; r < KEYS.length; r++) {
+  for (let c = 0; c < KEYS[r].length; c++) {
+    const m = buildModel(KEYS[r][c]);
+    m.position.set(c * SX, 0, r * SZ);
+    scene.add(m);
+    const pad = new THREE.Mesh(
+      new THREE.CircleGeometry(40, 24),
+      new THREE.MeshLambertMaterial({ color: 0xc9d6e2 })
+    );
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.set(c * SX, 0.2, r * SZ);
+    scene.add(pad);
+  }
+}
+
+const W = 1500, H = 900;
+const cx = ((KEYS[0].length - 1) * SX) / 2;
+const cz = ((KEYS.length - 1) * SZ) / 2;
+const cam = new THREE.OrthographicCamera(-W / 4, W / 4, H / 4, -H / 4, 1, 3000);
+cam.position.set(cx, 320, cz + 420);
+cam.lookAt(cx, 25, cz);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(W, H);
+document.body.appendChild(renderer.domElement);
+renderer.render(scene, cam);
+</script>
+</body>
+</html>

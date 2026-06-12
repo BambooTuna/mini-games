@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <!-- 骨付き肉 -->
+  <g stroke="#7a3030" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+    <!-- 骨 -->
+    <line x1="26" y1="14" x2="34" y2="6" stroke="#e9e2d4" stroke-width="4"/>
+    <circle cx="34" cy="6" r="3.4" fill="#f6f1e6" stroke="#cfc6b2" stroke-width="1.4"/>
+    <circle cx="36.5" cy="9" r="3" fill="#f6f1e6" stroke="#cfc6b2" stroke-width="1.4"/>
+    <!-- 肉 -->
+    <path d="M5 22 Q4 12 14 10 Q24 8 28 15 Q31 21 26 27 Q19 34 11 31 Q5 28 5 22 Z" fill="#e25555"/>
+    <!-- サシ -->
+    <path d="M11 19 Q15 16 20 18 M13 25 Q17 23 21 25" fill="none" stroke="#f4b8b8" stroke-width="2.2"/>
+    <!-- ハイライト -->
+    <ellipse cx="13" cy="15" rx="3.4" ry="2.2" fill="#ef8a8a" stroke="none"/>
+  </g>
+</svg>

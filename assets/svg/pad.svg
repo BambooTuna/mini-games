@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- 建設パッド(半透明の円) -->
+  <circle cx="60" cy="60" r="54" fill="#50a0ff" fill-opacity="0.22"/>
+  <circle cx="60" cy="60" r="54" fill="none" stroke="#78beff" stroke-width="4"
+          stroke-dasharray="14 10" stroke-linecap="round"/>
+  <circle cx="60" cy="60" r="42" fill="#ffffff" fill-opacity="0.25"/>
+</svg>

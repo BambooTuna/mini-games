@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <!-- ホッキョクグマ ティア1(白・のんびり顔) -->
+  <g stroke="#46586a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <!-- 後脚 -->
+    <ellipse cx="26" cy="80" rx="10" ry="8" fill="#e9eff4"/>
+    <ellipse cx="70" cy="80" rx="10" ry="8" fill="#e9eff4"/>
+    <!-- 体 -->
+    <ellipse cx="48" cy="58" rx="32" ry="25" fill="#f6f9fb"/>
+    <!-- おなか -->
+    <ellipse cx="48" cy="66" rx="18" ry="13" fill="#ffffff" stroke="none"/>
+    <!-- 前脚 -->
+    <ellipse cx="34" cy="80" rx="9" ry="8" fill="#f6f9fb"/>
+    <ellipse cx="62" cy="80" rx="9" ry="8" fill="#f6f9fb"/>
+    <!-- 耳 -->
+    <circle cx="34" cy="13" r="7" fill="#f6f9fb"/>
+    <circle cx="62" cy="13" r="7" fill="#f6f9fb"/>
+    <circle cx="34" cy="13" r="3" fill="#d8a8a0" stroke="none"/>
+    <circle cx="62" cy="13" r="3" fill="#d8a8a0" stroke="none"/>
+    <!-- 頭 -->
+    <circle cx="48" cy="26" r="18" fill="#f6f9fb"/>
+    <!-- マズル -->
+    <ellipse cx="48" cy="33" rx="9" ry="7" fill="#ffffff" stroke="none"/>
+    <ellipse cx="48" cy="30.5" rx="4" ry="3" fill="#33414f" stroke="none"/>
+    <path d="M48 33 L48 36 M45 38 Q48 40 51 38" fill="none" stroke="#33414f" stroke-width="1.8"/>
+    <!-- 目 -->
+    <circle cx="40" cy="24" r="2.2" fill="#33414f" stroke="none"/>
+    <circle cx="56" cy="24" r="2.2" fill="#33414f" stroke="none"/>
+  </g>
+</svg>

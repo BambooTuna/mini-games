@@ -1,0 +1,341 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0b1c2e;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  font-family: "Hiragino Maru Gothic ProN", "Rounded Mplus 1c", sans-serif;
+}
+
+#game-container {
+  position: fixed;
+  inset: 0;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pad-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: #fff;
+  font-weight: bold;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.pad-label .icon { font-size: 22px; }
+.pad-label b { font-size: 14px; }
+.pad-label .cost { font-size: 13px; color: #ffe27a; }
+.pad-label .max { color: #7CFC8a; }
+
+.pad-label i {
+  display: block;
+  width: 80px;
+  height: 6px;
+  background: #ffd84d;
+  border-radius: 3px;
+}
+
+.zone-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #fff;
+  font-weight: bold;
+  font-size: 16px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.hp-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 56px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 4px;
+}
+
+.hp-bar i {
+  display: block;
+  height: 100%;
+  background: #e25555;
+  border-radius: 4px;
+}
+
+.fx {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-weight: bold;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  will-change: transform;
+}
+
+.fx-levelup {
+  color: #ffd84d;
+  font-weight: 900;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 14px rgba(255, 200, 40, 0.8);
+}
+
+.fx-newpop {
+  color: #ffd84d;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 200, 40, 0.9);
+}
+
+.hp-bar.boss {
+  width: 96px;
+  height: 13px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.hp-bar.boss i { border-radius: 7px; }
+
+.boss-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: #c0392b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  will-change: transform;
+}
+
+#quest-banner {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 8px) + 58px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(20, 32, 48, 0.82);
+  border: 2px solid rgba(255, 216, 77, 0.7);
+  border-radius: 999px;
+  padding: 8px 18px;
+  color: #fff;
+  font-weight: bold;
+  font-size: 15px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.3s;
+}
+
+#quest-banner .q-icon { font-size: 18px; }
+#quest-banner .q-prog { color: #ffd84d; font-size: 17px; }
+
+#move-hint {
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-weight: bold;
+  padding: 8px 20px;
+  border-radius: 999px;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+#hud {
+  position: absolute;
+  top: env(safe-area-inset-top, 8px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+  pointer-events: none;
+}
+
+#hp-counter, #day-counter,
+#money-counter, #meat-counter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 6px 16px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+#money-value { color: #ffd84d; }
+
+#hp-icon { font-size: 15px; }
+
+#hp-gauge {
+  width: 72px;
+  height: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+#hp-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: #7CFC8a;
+  border-radius: 5px;
+  transition: width 0.15s linear;
+}
+
+#day-counter { padding: 6px 10px; }
+
+#money-counter.bump {
+  animation: bump 0.18s ease-out;
+}
+
+@keyframes bump {
+  50% { transform: scale(1.18); }
+}
+
+#joystick {
+  position: absolute;
+  pointer-events: none;
+}
+
+#joystick-base {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+#joystick-stick {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+#toast {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: bold;
+  white-space: nowrap;
+  transition: opacity 0.4s;
+}
+
+.hidden {
+  opacity: 0;
+}
+
+/* 設定メニュー(.hidden は当たり判定が残るので display:none ベースの専用クラスで開閉する) */
+.menu-hidden {
+  display: none !important;
+}
+
+#settings-button {
+  position: absolute;
+  top: 10px;
+  right: calc(env(safe-area-inset-right, 0px) + 12px);
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 22px;
+  line-height: 1;
+  pointer-events: auto; /* #hud は pointer-events:none のため明示 */
+}
+
+#settings-menu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(20, 32, 48, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 16px;
+  padding: 20px 24px;
+  pointer-events: auto;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+}
+
+.settings-view {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.settings-text {
+  color: #fff;
+  font-weight: bold;
+  font-size: 16px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#settings-menu button {
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 10px 24px;
+  white-space: nowrap;
+}
+
+#reset-open, #reset-confirm {
+  border-color: rgba(226, 85, 85, 0.7);
+  color: #ff9c8f;
+}

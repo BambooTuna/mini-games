@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- コイン -->
+  <circle cx="16" cy="16" r="14" fill="#ffd84d" stroke="#c9920a" stroke-width="2"/>
+  <circle cx="16" cy="16" r="10" fill="none" stroke="#e8b520" stroke-width="2"/>
+  <text x="16" y="21.5" font-family="Arial, sans-serif" font-size="14" font-weight="bold"
+        fill="#a6780a" text-anchor="middle">$</text>
+  <ellipse cx="11" cy="9" rx="3.4" ry="2" fill="#ffe896" transform="rotate(-30 11 9)"/>
+</svg>

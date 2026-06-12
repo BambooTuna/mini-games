@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 110">
+  <!-- 雪をかぶったモミの木 -->
+  <g stroke="#1f4a36" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="35" y="86" width="10" height="20" rx="2" fill="#7a5230" stroke="#5a3a1a"/>
+    <path d="M40 6 L66 50 L52 48 L72 82 L8 82 L28 48 L14 50 Z" fill="#2e6b4f"/>
+    <!-- 雪 -->
+    <g fill="#eef4f8" stroke="#c8d8e4" stroke-width="2">
+      <path d="M40 6 L52 26 Q46 31 40 26 Q34 31 28 26 Z"/>
+      <path d="M24 54 Q30 60 38 56 Q44 62 52 56 L56 62 Q44 70 24 62 Z" stroke="none"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140">
+  <!-- 売店: 木のカウンター + 赤白ストライプの屋根 -->
+  <g stroke="#5a3a1a" stroke-width="2.5" stroke-linejoin="round">
+    <!-- 支柱 -->
+    <rect x="18" y="40" width="7" height="88" fill="#8a5a2b"/>
+    <rect x="135" y="40" width="7" height="88" fill="#8a5a2b"/>
+    <!-- カウンター -->
+    <rect x="12" y="78" width="136" height="50" rx="5" fill="#a06a36"/>
+    <rect x="12" y="78" width="136" height="12" rx="5" fill="#7a4a22"/>
+    <line x1="46" y1="92" x2="46" y2="124" stroke="#7a4a22" stroke-width="2"/>
+    <line x1="80" y1="92" x2="80" y2="124" stroke="#7a4a22" stroke-width="2"/>
+    <line x1="114" y1="92" x2="114" y2="124" stroke="#7a4a22" stroke-width="2"/>
+    <!-- カウンターの上の肉 -->
+    <g stroke="#7a3030" stroke-width="1.6">
+      <ellipse cx="48" cy="74" rx="11" ry="7" fill="#e25555"/>
+      <ellipse cx="70" cy="74" rx="11" ry="7" fill="#e25555"/>
+      <path d="M44 72 Q48 70 52 72 M66 72 Q70 70 74 72" fill="none" stroke="#f4b8b8" stroke-width="1.8"/>
+    </g>
+    <!-- 値札 -->
+    <g stroke="#5a4a1a" stroke-width="2">
+      <rect x="96" y="60" width="30" height="20" rx="3" fill="#fff8e0"/>
+      <text x="111" y="75" font-family="Arial, sans-serif" font-size="14" font-weight="bold"
+            fill="#c9920a" text-anchor="middle" stroke="none">$</text>
+    </g>
+    <!-- 屋根 -->
+    <g stroke="#8a2a2a" stroke-width="2.5">
+      <path d="M6 44 L18 8 L142 8 L154 44 Z" fill="#e25555"/>
+      <path d="M30.7 44 L38.3 8 L62.7 8 L55.3 44 Z" fill="#ffffff" stroke="none"/>
+      <path d="M80 44 L82.7 8 L107 8 L104.7 44 Z" fill="#ffffff" stroke="none"/>
+      <path d="M129.3 44 L126 8 L142 8 L154 44 Z" fill="#ffffff" stroke="none"/>
+      <path d="M6 44 L18 8 L142 8 L154 44 Z" fill="none"/>
+      <!-- 屋根の縁の波 -->
+      <path d="M6 44 Q12.4 52 18.7 44 Q25 52 31.4 44 Q37.7 52 44 44 Q50.4 52 56.7 44 Q63 52 69.4 44 Q75.7 52 82 44 Q88.4 52 94.7 44 Q101 52 107.4 44 Q113.7 52 120 44 Q126.4 52 132.7 44 Q139 52 145.4 44 Q148.7 49 154 44"
+            fill="none" stroke="#8a2a2a" stroke-width="2.5"/>
+    </g>
+  </g>
+</svg>

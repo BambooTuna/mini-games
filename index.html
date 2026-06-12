@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Arctic Survivor</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game"></canvas>
+
+    <div id="overlay"></div>
+
+    <div id="hud">
+      <div id="day-counter">
+        <span id="day-icon">☀️</span>
+      </div>
+      <div id="hp-counter">
+        <span id="hp-icon">❤️</span>
+        <div id="hp-gauge"><i id="hp-fill"></i></div>
+      </div>
+      <div id="money-counter">
+        <span id="money-icon">💵</span>
+        <span id="money-value">0</span>
+      </div>
+      <div id="meat-counter">
+        <span id="meat-icon">🥩</span>
+        <span id="meat-value">0</span>
+      </div>
+      <button id="settings-button">⚙️</button>
+    </div>
+
+    <div id="settings-menu" class="menu-hidden">
+      <div id="settings-main" class="settings-view">
+        <button id="reset-open">🗑️ 進捗を初期化</button>
+        <button id="settings-close">閉じる</button>
+      </div>
+      <div id="settings-confirm" class="settings-view menu-hidden">
+        <div class="settings-text">本当に最初からやり直す？</div>
+        <button id="reset-confirm">やり直す</button>
+        <button id="reset-cancel">やめる</button>
+      </div>
+    </div>
+
+    <div id="quest-banner" class="hidden"></div>
+
+    <div id="joystick" class="hidden">
+      <div id="joystick-base"></div>
+      <div id="joystick-stick"></div>
+    </div>
+
+    <div id="toast" class="hidden"></div>
+
+    <div id="move-hint">ドラッグして移動</div>
+  </div>
+
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

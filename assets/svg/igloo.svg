@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 100">
+  <!-- イグルー -->
+  <g stroke="#aebfcc" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M10 96 A60 60 0 0 1 130 96 Z" fill="#eef4f8"/>
+    <!-- ブロックの線 -->
+    <path d="M22 96 A48 48 0 0 1 118 96 M38 96 A32 32 0 0 1 102 96" fill="none" stroke-width="2"/>
+    <line x1="42" y1="62" x2="50" y2="74" stroke-width="2"/>
+    <line x1="70" y1="36" x2="70" y2="64" stroke-width="2"/>
+    <line x1="98" y1="62" x2="90" y2="74" stroke-width="2"/>
+    <!-- 入口 -->
+    <path d="M48 96 A22 22 0 0 1 92 96 Z" fill="#dde8f0" stroke="#aebfcc"/>
+    <path d="M56 96 A14 14 0 0 1 84 96 Z" fill="#46586a" stroke="none"/>
+  </g>
+</svg>

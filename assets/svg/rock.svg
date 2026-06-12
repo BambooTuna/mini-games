@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 50">
+  <!-- 雪をかぶった岩 -->
+  <g stroke-linejoin="round">
+    <path d="M6 45 L14 18 L36 8 L62 24 L58 45 Z" fill="#9aa7b2" stroke="#6b7884" stroke-width="2.5"/>
+    <path d="M36 8 L42 45 L58 45 L62 24 Z" fill="#8794a0" stroke="none"/>
+    <path d="M14 18 L36 8 L62 24 L50 26 Q40 18 30 22 Q20 18 14 18 Z" fill="#eef4f8" stroke="#c8d8e4" stroke-width="2"/>
+  </g>
+</svg>
