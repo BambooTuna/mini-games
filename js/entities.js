@@ -138,7 +138,8 @@ export function updatePlayer(player, move, dt, stats, world) {
   player.swing = Math.max(0, player.swing - dt);
 }
 
-// target はプレイヤーまたはハンター(呼び出し側が最寄りを選ぶ)。夜間は索敵と足が強化される
+// target はプレイヤーまたはハンター(呼び出し側が最寄りを選ぶ)。拠点内は安全圏なので
+// 呼び出し側が null を渡し、その間クマは徘徊に戻る。夜間は索敵と足が強化される
 export function updateBear(bear, target, dt, world, isNight) {
   const cfg = CONFIG.bear;
   const aggroRange = cfg.aggroRange * (isNight ? cfg.night.aggroMult : 1);
@@ -161,7 +162,8 @@ export function updateBear(bear, target, dt, world, isNight) {
     bear.windup -= dt;
     if (bear.windup > 0) return null;
     bear.windup = 0;
-    // 溜め切った瞬間: 射程の1.5倍以内なら一撃、逃げ切られていたら不発
+    // 溜め切った瞬間: 射程の1.5倍以内なら一撃、逃げ切られていた(拠点に入った)ら不発
+    if (!target) return null;
     const dist = Math.hypot(target.x - bear.x, target.y - bear.y);
     if (dist <= cfg.attackRange * 1.5) {
       return { type: "bearAttack", damage: CONFIG.bear.tiers[bear.tier].damage, tier: bear.tier, target };
@@ -171,7 +173,8 @@ export function updateBear(bear, target, dt, world, isNight) {
 
   if (bear.state === "dead") return null;
 
-  const distToTarget = Math.hypot(target.x - bear.x, target.y - bear.y);
+  // target なし(全員が拠点内/休憩中)は distance=∞ 扱いで chase が解けて徘徊に戻る
+  const distToTarget = target ? Math.hypot(target.x - bear.x, target.y - bear.y) : Infinity;
 
   if (distToTarget < aggroRange) {
     bear.state = "chase";

@@ -62,9 +62,14 @@
 - **3D生成AI**（Meshy、Tripo など）でテキスト/画像から生成して .glb ダウンロード
 - **Sketchfab** などの CC0 / 商用可ライセンスの無料アセットをダウンロード
 
-## あると嬉しいもの（任意・後回しでOK）
+## 効果音
 
-- 効果音（攻撃ヒット、肉回収、売却チャリン、アップグレード完了）— 現状サウンドは未実装。用意してもらえたら組み込みます。
+`assets/sfx/<name>_<n>.m4a` があればファイル再生（同名複数からランダム）、無い名前は WebAudio 合成に
+フォールバックする（`js/audio.js`）。適用済み: hit / kill / chop / shatter / pickup / sell / money
+（出典: [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) と
+[Kenney Casino Audio](https://kenney.nl/assets/casino-audio)、CC0。ogg から m4a へ変換済み — Safari が
+Ogg Vorbis をデコードできないため）。levelup / quest / sizzle は合成音のまま。
+差し替え・追加は同じ命名でファイルを置き、`js/audio.js` の `SFX_FILE_COUNTS` を合わせるだけ。
 
 ## 旧 2D アセットについて
 

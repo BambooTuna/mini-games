@@ -2,7 +2,7 @@
 // 背中へのホーミング(carryFlights)、地面アイテムの回収。
 import { CONFIG } from "../config.js";
 import {
-  resolveCampCollision, resolveWallsCollision, resolveBlockers,
+  resolveCampCollision, resolveWallsCollision, resolveBlockers, insideCamp,
 } from "../world.js";
 import { createBear, createGroundItem, updateBear, updateGroundItem, findNearestBear } from "../entities.js";
 import { playSfx } from "../audio.js";
@@ -115,10 +115,11 @@ export function createCombat({ state, world, quests, getStats, ui }) {
 
   function updateBears(dt) {
     const isNight = state.time.isNight;
-    // 休憩中のハンターは狙わない(焚き火=安全圏)
-    const targets = [state.player, ...state.hunters.filter((h) => h.state !== "rest")];
+    // 拠点内と休憩中(焚き火)は安全圏: クマは狙わない(全員安全圏なら target=null で徘徊)
+    const targets = [state.player, ...state.hunters.filter((h) => h.state !== "rest")]
+      .filter((t) => !insideCamp(world.camp, t.x, t.y));
     for (const bear of state.bears) {
-      let target = state.player;
+      let target = null;
       let best = Infinity;
       for (const t of targets) {
         const d = Math.hypot(t.x - bear.x, t.y - bear.y);
@@ -127,7 +128,8 @@ export function createCombat({ state, world, quests, getStats, ui }) {
       const prevX = bear.x;
       const prevY = bear.y;
       const result = updateBear(bear, target, dt, world, isNight);
-      resolveCampCollision(world.camp, prevX, prevY, bear);
+      // クマはゲートも通れない(拠点に居た場合だけ、出るためにゲートを許可)
+      resolveCampCollision(world.camp, prevX, prevY, bear, insideCamp(world.camp, prevX, prevY));
       if (world.walls) resolveWallsCollision(world.walls, prevX, prevY, bear);
       resolveBlockers(world.blockers, bear);
       if (result?.type === "bearAttack") {

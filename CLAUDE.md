@@ -53,7 +53,8 @@ js/
 - `state.quest`: main が quests.hudState() を毎フレーム書き込み、render(overlay/actors)がバナーと誘導矢印を描く
 - `state.time`(昼夜): main の updateDayCycle が isNight/nightF を更新。render/scene が照明を補間、environment が火明かりを増幅、game 側は npcs(ハンター/客の休止)と combat(クマの夜間凶暴化)が読む
 - `world.campfire`: 回復・休憩地点。combat(プレイヤーの回復/ダウン送還)と npcs(ハンターの休憩位置)が共有
-- HP: プレイヤー/ハンターは entities が hp/maxHp を持ち combat が増減。HUD は main、頭上バーは render/overlay
+- HP: プレイヤー/ハンターは entities が hp/maxHp を持ち combat が増減。バーはすべて render/overlay の頭上表示(HUD にゲージは置かない)
+- 拠点=安全圏: combat が拠点内のプレイヤー/ハンターをクマのターゲットから除外(全員安全圏なら target=null で徘徊)。クマの柵衝突は `resolveCampCollision(..., allowGate=false)` でゲートも通さない
 - ベルトコンベア: `CONFIG.conveyor.unlockLevel` 以上で game/production が自動搬送、render/stations3d がベルトを描画(搬送演出は itemFly の `flat:true`)
 - 所持上限(非マネー): `CONFIG.upgrades.boots.carry(lv)`。combat(magnet/着弾)と production(取出)がゲートする
 - モデルの名前契約: `"flame"`(加工中のみ表示+揺らぎ)、`"spin"`(加工中に回転)、`"weapon"`/`"axehead"`(スイング/成長)、`"firelight"`(焚き火の揺らぎ)

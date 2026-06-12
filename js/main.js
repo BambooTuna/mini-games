@@ -22,7 +22,6 @@ const container = document.getElementById("game-container");
 const moneyEl = document.getElementById("money-value");
 const moneyCounterEl = document.getElementById("money-counter");
 const meatEl = document.getElementById("meat-value");
-const hpFillEl = document.getElementById("hp-fill");
 const dayIconEl = document.getElementById("day-icon");
 const toastEl = document.getElementById("toast");
 const moveHintEl = document.getElementById("move-hint");
@@ -185,11 +184,6 @@ function updateHud(dt, stats) {
   moneyEl.textContent = `${Math.round(state.displayMoney)}`;
   const carried = state.player.stack.filter((i) => i.kind !== "money").length;
   meatEl.textContent = `${carried}/${stats.carryCap}`;
-
-  // HPバー(残量で色が変わる)
-  const hpRatio = Math.max(0, state.player.hp / state.player.maxHp);
-  hpFillEl.style.width = `${hpRatio * 100}%`;
-  hpFillEl.style.background = hpRatio > 0.5 ? "#7CFC8a" : hpRatio > 0.25 ? "#ffd84d" : "#e25555";
 
   const dayIcon = state.time.isNight ? "🌙" : "☀️";
   if (dayIconEl.textContent !== dayIcon) dayIconEl.textContent = dayIcon;

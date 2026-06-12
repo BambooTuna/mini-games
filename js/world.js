@@ -31,7 +31,8 @@ export function createWorld() {
   };
 
   // 序盤エリア(zone0)を囲む氷壁。東壁だけ壁パッドに支払うと破壊できる。
-  const zone = { x1: baseX - 620, y1: baseY - 520, x2: baseX + 620, y2: baseY + 520 };
+  // 南壁は stage3 拠点(y2=1240)からゲート前の広場を 280 確保する位置
+  const zone = { x1: baseX - 620, y1: baseY - 520, x2: baseX + 620, y2: baseY + 620 };
 
   // カウンター(西柵 x=672 に埋め込み、縦長 25×100)。台上北側 inPile に焼き肉、南側 outPile に金が積まれる。
   // ゾーンは台の東(拠点内)に中心+75 で置く。焼き台out→カウンターin(北)→金回収out(南)→ゲート と
@@ -100,7 +101,8 @@ export function createWorld() {
   // 旧・西の巣は客レーンと干渉するため廃止。
   const nests = [
     { x: baseX, y: baseY - 445, tier: 0, perNest: 2 },
-    { x: baseX, y: baseY + 445, tier: 0, perNest: 2 },
+    // ゲート(992, y2)の真ん前を避けて南西へ。散布(±42)込みで insideCamp(margin60) の外
+    { x: baseX - 340, y: baseY + 475, tier: 0, perNest: 2 },
     // stage3 拠点(x2=1422, y2=1240)の南東外。散布2体とも insideCamp(margin60)の外に残り、
     // hunter パッド(1355,1060)まで347 > aggro(260)を確保
     { x: baseX + 538, y: baseY + 460, tier: 0, perNest: 2 },
@@ -174,14 +176,15 @@ export function createWorld() {
     campfire: { x: baseX - 52, y: baseY - 40 },
 
     // アップグレードパッド(上に立つと金が流れ込む。r55、5つとも強化専用)。壁パッドはここに混ぜない。
-    // 各設備パッドはその設備の正面南に置く。パッド間最小距離は weapon–cutboard 155(全ペア >110)
+    // 配置はゾーン/焚き火/他パッドと視覚的に重ならないこと(検査は両軸の半幅和: パッド半幅≈radius)
     pads: [
       // stage0 から表示。stage0 東柵(x=1312)まで72
       { key: "weapon", x: baseX + 248, y: baseY + 60, radius: 55 }, // (1240, 960)
       // stage1。カット台(1150,715)の正面南西(outZone 下端 y=821 から円上端 y=865 で間隔44)
       { key: "cutboard", x: baseX + 98, y: baseY + 20, radius: 55 }, // (1090, 920)
-      // stage1。焼き台(860,715)の正面南
-      { key: "grill", x: baseX - 172, y: baseY + 20, radius: 55 }, // (820, 920)
+      // stage1。焼き台の南、焚き火(940,860)の南西。カウンター in/out ゾーン(x≤783)と
+      // boots パッド(770,1075)のどちらにも重ならない位置
+      { key: "grill", x: baseX - 102, y: baseY + 140, radius: 55 }, // (890, 1040)
       // stage1 南拡張内。counter outZone 下端(y=990)まで中心から85
       { key: "boots", x: baseX - 222, y: baseY + 175, radius: 55 }, // (770, 1075)
       // stage2 東拡張内。東柵(x=1422)まで67
@@ -215,8 +218,9 @@ export function insideCamp(camp, x, y, margin = 0) {
 }
 
 // 柵の衝突解決: 移動前後で柵をまたいだら、ゲート開口部以外は押し戻す。
-export function resolveCampCollision(camp, prevX, prevY, e) {
-  const inGateSpan = (x) => Math.abs(x - camp.gate.x) < camp.gate.halfW;
+// allowGate=false でゲートも塞ぐ(クマ用。拠点=安全圏に入らせない)
+export function resolveCampCollision(camp, prevX, prevY, e, allowGate = true) {
+  const inGateSpan = (x) => allowGate && Math.abs(x - camp.gate.x) < camp.gate.halfW;
   const wasInsideX = prevX > camp.x1 && prevX < camp.x2;
   const wasInsideY = prevY > camp.y1 && prevY < camp.y2;
 

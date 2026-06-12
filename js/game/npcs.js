@@ -18,6 +18,9 @@ export function createNpcs({ state, world, save, damageBear }) {
   // カット台の満杯ヒステリシス: 満杯で休憩へ、6割を切るまで復帰しない(出戻りのバタつき防止)
   let cutboardJam = false;
 
+  // 焚き火(940,860)からの休憩位置オフセット(最大3人)
+  const REST_OFFSETS = [{ x: -65, y: 42 }, { x: 58, y: 58 }, { x: -8, y: 78 }];
+
   function updateHunters(dt) {
     const events = [];
     const cutboard = (world.stations ?? []).find((s) => s.key === "cutboard");
@@ -29,12 +32,9 @@ export function createNpcs({ state, world, save, damageBear }) {
 
     for (let i = 0; i < state.hunters.length; i++) {
       const hunter = state.hunters[i];
-      // 焚き火の周りに人数分の休憩位置を散らす
-      const a = 0.8 + i * 2.1;
-      const restSpot = {
-        x: world.campfire.x + Math.cos(a) * 70,
-        y: world.campfire.y + Math.sin(a) * 70,
-      };
+      // 焚き火の周りの休憩位置(焼き台の投入ゾーンやパッドに被らない手置きオフセット)
+      const off = REST_OFFSETS[i % REST_OFFSETS.length];
+      const restSpot = { x: world.campfire.x + off.x, y: world.campfire.y + off.y };
       const prevX = hunter.x;
       const prevY = hunter.y;
       updateHunter(hunter, {

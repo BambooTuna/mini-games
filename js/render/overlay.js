@@ -77,6 +77,24 @@ export function createOverlayUi(ctx) {
       bar.style.transform = `translate(-50%, -50%) translate(${p.x}px, ${p.y}px)`;
       bar.firstChild.style.width = `${Math.max(4, (bear.hp / bear.maxHp) * 100)}%`;
     }
+    // プレイヤーのHPバー(減っている間だけ頭上に追従表示。残量で色が変わる)
+    const player = state.player;
+    if (player.hp < player.maxHp) {
+      let bar = hpBars.get("player");
+      if (!bar) {
+        bar = document.createElement("div");
+        bar.className = "hp-bar player";
+        bar.innerHTML = "<i></i>";
+        overlay.appendChild(bar);
+        hpBars.set("player", bar);
+      }
+      bar.dataset.alive = "1";
+      const ratio = Math.max(0, player.hp / player.maxHp);
+      const p = project(player.x, 86, player.y);
+      bar.style.transform = `translate(-50%, -50%) translate(${p.x}px, ${p.y}px)`;
+      bar.firstChild.style.width = `${Math.max(4, ratio * 100)}%`;
+      bar.firstChild.style.background = ratio > 0.5 ? "#7CFC8a" : ratio > 0.25 ? "#ffd84d" : "#e25555";
+    }
     // ハンターのHPバー(減っている間だけ表示。スイープはクマと共通)
     for (const hunter of state.hunters ?? []) {
       if (hunter.hp >= hunter.maxHp) continue;
