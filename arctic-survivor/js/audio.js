@@ -4,9 +4,9 @@ const MASTER_VOLUME = 0.25;
 
 // ファイル化済みの効果音(name -> バリエーション数)。
 // 出典: Kenney Impact Sounds / Casino Audio (CC0)、sizzle は Pixabay (frying steak)
-const SFX_FILE_COUNTS = { hit: 5, kill: 5, chop: 5, shatter: 5, pickup: 5, sell: 3, money: 5, pay: 4, sizzle: 3 };
+const SFX_FILE_COUNTS = { hit: 5, playerhit: 4, hunterhit: 4, kill: 5, chop: 5, shatter: 5, pickup: 5, sell: 3, money: 5, pay: 4, sizzle: 3 };
 // 素材ごとの音量差を均すゲイン(volumedetect の実測に基づく。sell/pickup は連続再生されるので控えめ)
-const SFX_FILE_GAINS = { hit: 0.65, kill: 0.95, chop: 1.2, shatter: 1.4, pickup: 0.5, sell: 1.0, money: 0.7, pay: 1.3, sizzle: 0.6 };
+const SFX_FILE_GAINS = { hit: 0.65, playerhit: 0.7, hunterhit: 0.6, kill: 0.95, chop: 1.2, shatter: 1.4, pickup: 0.5, sell: 1.0, money: 0.7, pay: 1.3, sizzle: 0.6 };
 
 // アンビエントループ(kind -> 素材と減衰)。radius はワールド単位(プレイヤー身長=50)で聞こえる距離
 const AMBIENT_DEFS = {
@@ -235,6 +235,16 @@ const SFX = {
   hit() {
     noiseBurst({ cutoff: 1400, duration: 0.06, gain: 0.3 });
     tone({ type: "sine", freq: 130, freqEnd: 65, duration: 0.09, gain: 0.5 });
+  },
+  // 主人公のトルネード斬り: 渦のホワッ + 重い金属打撃
+  playerhit() {
+    noiseBurst({ cutoff: 1800, duration: 0.22, gain: 0.18 });
+    tone({ type: "sine", freq: 150, freqEnd: 70, duration: 0.14, gain: 0.5 });
+  },
+  // ハンターの斧チョップ: 鋭い木の打撃
+  hunterhit() {
+    noiseBurst({ cutoff: 3000, duration: 0.05, gain: 0.28 });
+    tone({ type: "square", freq: 200, freqEnd: 110, duration: 0.06, gain: 0.3 });
   },
   // 討伐: 深い thump
   kill() {

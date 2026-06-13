@@ -49,7 +49,8 @@ export function createCombat({ state, world, quests, getStats, ui, nav }) {
     bear.ky = ((bear.y - fromY) / d) * 260;
     state.hitstop = Math.max(state.hitstop, 0.04);
     state.effects.push({ kind: "burst", x: bear.x, y: bear.y, color: "#ffffff", count: 6, age: 0, life: 0.45 });
-    playSfx("hit");
+    // 主人公(トルネード斬り)とハンター(斧)で攻撃音を分ける
+    playSfx(source?.type === "hunter" ? "hunterhit" : "playerhit");
     addText(state, bear.x, bear.y - 30, `${damage}`, "#fff", 18);
     if (bear.hp <= 0) killBear(bear, source);
   }

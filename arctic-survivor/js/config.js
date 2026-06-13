@@ -138,6 +138,8 @@ export const CONFIG = {
     attackInterval: 0.7,
     maxHp: 60,
     restBelow: 0.35, // HPがこの割合を切ると焚き火で休憩
+    targetChoices: 3, // ターゲット選択時に候補とする近いクマの数(ランダムに分散)
+    targetLeash: 900, // 保持中ターゲットがこの距離を超えたら諦めて選び直す
   },
 
   customer: {
