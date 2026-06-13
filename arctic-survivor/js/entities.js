@@ -123,6 +123,7 @@ export function createHunter(x, y) {
     maxHp: CONFIG.hunter.maxHp,
     zzzT: 0,       // 休憩中の💤演出タイマー
     stack: [],     // 背中に積んだアイテム [{kind,value}](raw のみ)
+    targetId: null, // 狙っているクマの id(全員が最寄りに集中しないよう保持する)
   };
 }
 
@@ -545,9 +546,22 @@ export function updateHunter(hunter, env, dt, events) {
     return;
   }
 
-  // クマを探して攻撃
-  const bear = findNearestBear(bears, hunter.x, hunter.y, Infinity);
-  if (!bear) return;
+  // クマを探して攻撃。全員が最寄りの1頭に集中しないよう、ターゲットを保持し、
+  // 選び直すときは近い数頭からランダムに選ぶ(リーシュを超えたら解除して再選択)
+  let bear = hunter.targetId != null ? bears.find((b) => b.id === hunter.targetId) : null;
+  if (bear && Math.hypot(bear.x - hunter.x, bear.y - hunter.y) > cfg.targetLeash) bear = null;
+  if (!bear) {
+    const near = bears
+      .map((b) => ({ b, d: Math.hypot(b.x - hunter.x, b.y - hunter.y) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, cfg.targetChoices);
+    if (near.length === 0) {
+      hunter.targetId = null;
+      return;
+    }
+    bear = near[Math.floor(Math.random() * near.length)].b;
+    hunter.targetId = bear.id;
+  }
   const d = Math.hypot(bear.x - hunter.x, bear.y - hunter.y);
   if (d > 55) {
     const goal = nav.next(hunter, bear.x, bear.y, dt, "hunter");

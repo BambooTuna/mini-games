@@ -86,7 +86,9 @@ BGM（`bgm_snow` / `bgm_calm` / `bgm_ambient`）は常時ループ。設定メ�
 | ファイル | 出典 | ライセンス |
 | --- | --- | --- |
 | chop / shatter / pickup | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) | CC0 |
-| hit | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) impactPunch_heavy をトリム（斧のキレある打撃） | CC0 |
+| hit | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) impactPunch_heavy をトリム（クマがプレイヤーを殴る打撃） | CC0 |
+| playerhit | 主人公のトルネード斬り。ピンクノイズの渦＋impactMetal_heavy（ピッチダウン）を合成 | CC0（合成） |
+| hunterhit | ハンターの斧。impactWood_heavy＋impactSoft（肉のドスッ）を合成した鋭いチョップ | CC0 |
 | kill | [Kenney Impact Sounds](https://kenney.nl/assets/impact-sounds) impactPunch をピッチダウン＋impactSoft を重ねた重い撃破音 | CC0 |
 | money | [Kenney Casino Audio](https://kenney.nl/assets/casino-audio) chips-handle / chips-collide をローパス8.5kでトリム（チップがジャラッと流れる現金音） | CC0 |
 | sell / pay | [Kenney Casino Audio](https://kenney.nl/assets/casino-audio)（sell=chip-lay、pay=card-shove 0.45s トリム） | CC0 |
